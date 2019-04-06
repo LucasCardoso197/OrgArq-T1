@@ -14,5 +14,7 @@ typedef struct {
 void parsearDadosServidor(char *line, Servidor *s);
 void imprimirServidor(Servidor *s);
 void resetarServidor(Servidor *s);
+int tamanhoRegServidor(Servidor *s);
+int escreverRegistro(Servidor *s, FILE* target);
 
 #endif
