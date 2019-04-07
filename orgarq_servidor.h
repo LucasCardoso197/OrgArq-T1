@@ -11,10 +11,12 @@ typedef struct {
 	char telefoneServidor[14], *nomeServidor, *cargoServidor;
 } Servidor;
 
-void parsearDadosServidor(char *line, Servidor *s);
 void imprimirServidor(Servidor *s);
 void resetarServidor(Servidor *s);
+void copiarServidor(Servidor *target, Servidor *s);
 int tamanhoRegServidor(Servidor *s);
-int escreverRegistro(Servidor *s, FILE* target);
+void parsearDadosServidor(char *line, Servidor *s);
+int escreverRegistro(Servidor *s, FILE* target, int extra);
+size_t lerRegistro(FILE *file, Servidor *s);
 
 #endif

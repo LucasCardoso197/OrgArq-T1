@@ -1,1 +1,1 @@
-input.csv
+2 output.bin
