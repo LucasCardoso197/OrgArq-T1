@@ -1,12 +1,26 @@
 #include "orgarq_servidor.h"
 
-void imprimirServidor(Servidor *s){
-	printf("|_Servidor_|\n");
-	printf("ID: %d\n", s->idServidor);
-	printf("Telefone: %s\n", s->telefoneServidor);
-	printf("Salario: %.2lf\n", s->salarioServidor);
-	printf("Cargo: %s\n", s->cargoServidor);
-	printf("Nome: %s\n", s->nomeServidor);
+void imprimirLinhaServidor(Servidor *s){
+	if(s == NULL) {
+		fprintf(stderr, "Attempt to print from null pointer.");
+		return;
+	}
+	printf("%d %.2lf %s ", s->idServidor, s->salarioServidor, s->telefoneServidor);
+	int tamanhoNome = strlen(s->nomeServidor);
+	int tamanhoCargo = strlen(s->cargoServidor);
+	if(s->nomeServidor[0] != '\0')
+		printf("%d %s ", tamanhoNome, s->nomeServidor);
+	if(s->cargoServidor[0] != '\0')
+		printf("%d %s", tamanhoCargo, s->cargoServidor);
+	printf("\n");
+}
+
+void imprimirCamposServidor(Servidor *s){
+	printf("numero de identificacao do servidor: %d\n", s->idServidor);
+	printf("salario do servidor: %.2lf\n", s->salarioServidor);
+	printf("telefone celular do servidor: %s\n", s->telefoneServidor);
+	printf("nome do servidor: %s\n", s->nomeServidor);
+	printf("cargo do servidor: %s\n\n", s->cargoServidor);
 }
 
 void resetarServidor(Servidor *s){
@@ -105,8 +119,6 @@ int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 	}
 
 	for(i=0; i < extra; i++){
-		printf("%d - Filling at...\n", i);
-		imprimirServidor(s);
 		fwrite(&trash, sizeof(char), 1, targetFile);
 	}
 
@@ -122,14 +134,15 @@ int tamanhoRegServidor(Servidor *s){
 	return tamanhoRegistro;
 }
 
-size_t lerRegistro(FILE *inputFile, Servidor *s){
+int lerRegistro(FILE *inputFile, Servidor *s){
 	char *buffer, *cptr, caux;
-	int i, aux, tamanhoRegistro;
+	int i, aux, tamanhoRegistro, tamanhoNome;
 	resetarServidor(s);
 
 	// Leitura
-	fseek(inputFile, 1, SEEK_CUR);
+	fread(&caux, sizeof(char), 1, inputFile);
 	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
+	if(feof(inputFile) || ferror(inputFile)) return -1;
 	buffer = malloc(tamanhoRegistro);
 	fread(buffer, sizeof(char), tamanhoRegistro, inputFile);
 	memcpy(&s->idServidor, buffer+8, 4);
@@ -137,7 +150,7 @@ size_t lerRegistro(FILE *inputFile, Servidor *s){
 	memcpy(s->telefoneServidor, buffer+20, 14);
 	if(tamanhoRegistro == 34) {
 		free(buffer);
-		return 0;
+		return tamanhoRegistro+5;
 	}
 	memcpy(&aux, buffer+34, 4);
 	memcpy(&caux, buffer+38, 1);
@@ -145,22 +158,23 @@ size_t lerRegistro(FILE *inputFile, Servidor *s){
 		memcpy(s->nomeServidor, buffer+39, aux-1);
 		if((tamanhoRegistro == 38+aux) || (buffer[38+aux] == '@')) {
 			free(buffer);
-			return 0;
+			return tamanhoRegistro+5;
 		}
 		cptr = buffer+38+aux;
+		tamanhoNome = aux;
 		memcpy(&aux, cptr, 4);
 		memcpy(&caux, cptr+4, 1);
 	}
 	else if(caux == 'c'){
 		memcpy(s->cargoServidor, buffer+39, aux-1);
 		free(buffer);
-		return 0;
+		return tamanhoRegistro+5;
 	}
 	else { //caux == '@'
 		free(buffer);
-		return 0;
+		return tamanhoRegistro+5;
 	}
 	memcpy(s->cargoServidor, cptr+5, aux-1);
 	free(buffer);
-	return 0;
+	return tamanhoRegistro+5;
 }
