@@ -14,7 +14,8 @@ typedef struct {
 } campoCabecalho;
 
 void setarCampo(campoCabecalho *camp, const char c, const char *desc);
-void escreverCabecalho(FILE* targetFile);
+campoCabecalho *parsearCabecalho(FILE *inputFile);
+void escreverCabecalho(FILE* targetFile, campoCabecalho *cabCampos);
 void escreverCampos(campoCabecalho *lista, int tamanho, FILE* target);
 
 #endif

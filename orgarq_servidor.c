@@ -5,7 +5,7 @@ void imprimirLinhaServidor(Servidor *s){
 		fprintf(stderr, "Attempt to print from null pointer.");
 		return;
 	}
-	printf("%d %.2lf %s ", s->idServidor, s->salarioServidor, s->telefoneServidor);
+	printf("%d %.2lf %.14s ", s->idServidor, s->salarioServidor, s->telefoneServidor);
 	int tamanhoNome = strlen(s->nomeServidor);
 	int tamanhoCargo = strlen(s->cargoServidor);
 	if(s->nomeServidor[0] != '\0')
@@ -16,9 +16,13 @@ void imprimirLinhaServidor(Servidor *s){
 }
 
 void imprimirCamposServidor(Servidor *s){
+	if(s == NULL) {
+		fprintf(stderr, "Attempt to print from null pointer.");
+		return;
+	}
 	printf("numero de identificacao do servidor: %d\n", s->idServidor);
 	printf("salario do servidor: %.2lf\n", s->salarioServidor);
-	printf("telefone celular do servidor: %s\n", s->telefoneServidor);
+	printf("telefone celular do servidor: %.14s\n", s->telefoneServidor);
 	printf("nome do servidor: %s\n", s->nomeServidor);
 	printf("cargo do servidor: %s\n\n", s->cargoServidor);
 }
@@ -36,13 +40,18 @@ void resetarServidor(Servidor *s){
 
 void parsearDadosServidor(char *line, Servidor *s){
 	char *cptr;
+	int i;
 
 	// Garantir inicializacao correta dos campos caso encontre valores nulos
 	resetarServidor(s);
 
 	// Reading ID
 	s->idServidor = (int) strtol(line, &cptr, 10);
+	cptr++; // Skips ','
+	// Reading salary
+	s->salarioServidor = (double) strtod(cptr, &cptr);
 	cptr++;
+
 	// Reading phone
 	if(sscanf(cptr, "%[^,]", s->telefoneServidor) == 0){
 		cptr++;
@@ -50,30 +59,28 @@ void parsearDadosServidor(char *line, Servidor *s){
 	else {
 		cptr += 15;
 	}
-	// Reading salary
-	s->salarioServidor = (double) strtod(cptr, &cptr);
-	cptr++;
 	// Reading role
-	if(sscanf(cptr, "%[^,]", s->cargoServidor) == 0){
+	if(sscanf(cptr, "%[^,]", s->nomeServidor) == 0){
 		cptr++;
 	}
 	else {
-		cptr = cptr + strlen(s->cargoServidor) + 1;
+		cptr = cptr + strlen(s->nomeServidor) + 1;
 	}
 	// Reading name if line isn't over or found the 'mysterious' vertical tab
-	int i = 0;
-	while(*cptr != 13 && *cptr != 0){
-		s->nomeServidor[i] = *cptr;
+	while((*cptr != 13 && *cptr != 0) && *cptr != 10){
+		s->cargoServidor[i] = *cptr;
 		i++;
 		cptr++;
 	}
-	s->nomeServidor[i] = '\0';
+	s->cargoServidor[i] = '\0';
 }
 
 void copiarServidor(Servidor *target, Servidor *s){
+	int i;
 	target->idServidor = s->idServidor;
 	target->salarioServidor = s->salarioServidor;
-	strcpy(target->telefoneServidor, s->telefoneServidor);
+	for(i=0; i<14; i++)
+		target->telefoneServidor[i] = s->telefoneServidor[i];
 	strcpy(target->nomeServidor, s->nomeServidor);
 	strcpy(target->cargoServidor, s->cargoServidor);
 }
@@ -81,7 +88,6 @@ void copiarServidor(Servidor *target, Servidor *s){
 int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 	char removido = '-', trash = '@', aux;
 	long encadeamentoLista = -1;
-	int currentPosition = ftell(targetFile);
 	int i;
 
 	// Tamanho da string + '\0' + tag
@@ -136,19 +142,28 @@ int tamanhoRegServidor(Servidor *s){
 
 int lerRegistro(FILE *inputFile, Servidor *s){
 	char *buffer, *cptr, caux;
-	int i, aux, tamanhoRegistro, tamanhoNome;
+	int aux, tamanhoRegistro;
 	resetarServidor(s);
 
 	// Leitura
 	fread(&caux, sizeof(char), 1, inputFile);
 	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
 	if(feof(inputFile) || ferror(inputFile)) return -1;
-	buffer = malloc(tamanhoRegistro);
+	if(tamanhoRegistro < 0){
+		fprintf(stderr, "Critical error, read unexpected value from file.\n");
+		return -2;
+	}
+	buffer = (char*) malloc(sizeof(char)*tamanhoRegistro);
 	fread(buffer, sizeof(char), tamanhoRegistro, inputFile);
 	memcpy(&s->idServidor, buffer+8, 4);
 	memcpy(&s->salarioServidor, buffer+12, 8);
 	memcpy(s->telefoneServidor, buffer+20, 14);
-	if(tamanhoRegistro == 34) {
+	if(tamanhoRegistro == 34) { // Nome nulo, cargo nulo e sem bytes extra
+		free(buffer);
+		return tamanhoRegistro+5;
+	}
+	memcpy(&caux, buffer+34, 1);
+	if(caux == '@'){ // Nome nulo, cargo nulo com pelo menos 1 byte extra
 		free(buffer);
 		return tamanhoRegistro+5;
 	}
@@ -156,25 +171,25 @@ int lerRegistro(FILE *inputFile, Servidor *s){
 	memcpy(&caux, buffer+38, 1);
 	if(caux == 'n') {
 		memcpy(s->nomeServidor, buffer+39, aux-1);
+
 		if((tamanhoRegistro == 38+aux) || (buffer[38+aux] == '@')) {
+			// Nome nao nulo, cargo nulo com ou sem bytes extra
 			free(buffer);
 			return tamanhoRegistro+5;
 		}
+		// Nome nao nulo, cargo nao nulo com ou sem bytes extra
 		cptr = buffer+38+aux;
-		tamanhoNome = aux;
 		memcpy(&aux, cptr, 4);
 		memcpy(&caux, cptr+4, 1);
 	}
+	// Nome nulo, cargo nao nulo com ou seu bytes extra
 	else if(caux == 'c'){
 		memcpy(s->cargoServidor, buffer+39, aux-1);
 		free(buffer);
 		return tamanhoRegistro+5;
 	}
-	else { //caux == '@'
-		free(buffer);
-		return tamanhoRegistro+5;
-	}
 	memcpy(s->cargoServidor, cptr+5, aux-1);
+	cptr = NULL;
 	free(buffer);
 	return tamanhoRegistro+5;
 }
