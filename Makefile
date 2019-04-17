@@ -6,11 +6,12 @@ all:
 run:
 	./main
 test1:
-	./main < in1.txt
+	./main < 1.in
 test2:
-	./main < in2.txt
+	./main < 2.in
 test3:
-	./main < in3.txt
+	./main < 3.in
 clean:
 	rm *.o
 	rm main
+	rm *.txt

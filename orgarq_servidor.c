@@ -5,31 +5,60 @@ void imprimirLinhaServidor(Servidor *s){
 		fprintf(stderr, "Attempt to print from null pointer.");
 		return;
 	}
-	printf("%d %.2lf %.14s ", s->idServidor, s->salarioServidor, s->telefoneServidor);
+	// ID
+	printf("%d ", s->idServidor);
+	// Salario
+	if(s->salarioServidor == -1)
+		printf("         ");
+	else
+		printf("%.2lf ", s->salarioServidor);
+	// Telefone
+	if(s->telefoneServidor[0] == '\0')
+		printf("              ");
+	else
+		printf("%.14s", s->telefoneServidor);
+	// Nome e cargo
 	int tamanhoNome = strlen(s->nomeServidor);
 	int tamanhoCargo = strlen(s->cargoServidor);
 	if(s->nomeServidor[0] != '\0')
-		printf("%d %s ", tamanhoNome, s->nomeServidor);
+		printf(" %d %s", tamanhoNome, s->nomeServidor);
 	if(s->cargoServidor[0] != '\0')
-		printf("%d %s", tamanhoCargo, s->cargoServidor);
+		printf(" %d %s", tamanhoCargo, s->cargoServidor);
 	printf("\n");
 }
 
-void imprimirCamposServidor(Servidor *s){
-	if(s == NULL) {
+void imprimirCamposServidor(Servidor *s, campoCabecalho *cabecalho){
+	if(s == NULL || cabecalho == NULL) {
 		fprintf(stderr, "Attempt to print from null pointer.");
 		return;
 	}
-	printf("numero de identificacao do servidor: %d\n", s->idServidor);
-	printf("salario do servidor: %.2lf\n", s->salarioServidor);
-	printf("telefone celular do servidor: %.14s\n", s->telefoneServidor);
-	printf("nome do servidor: %s\n", s->nomeServidor);
-	printf("cargo do servidor: %s\n\n", s->cargoServidor);
+	// ID
+	printf("%s: %d\n", cabecalho[0].descricao, s->idServidor);
+	// Salario
+	if(s->salarioServidor == -1)
+		printf("%s: valor nao declarado\n", cabecalho[1].descricao);
+	else
+		printf("%s: %.2lf\n", cabecalho[1].descricao, s->salarioServidor);
+	// Telefone
+	if(s->telefoneServidor[0] == '\0')
+		printf("%s: valor nao declarado\n", cabecalho[2].descricao);
+	else
+		printf("%s: %.14s\n", cabecalho[2].descricao, s->telefoneServidor);
+	// Nome e cargo
+	if(s->nomeServidor[0] == '\0')
+		printf("%s: valor nao declarado\n", cabecalho[3].descricao);
+	else
+		printf("%s: %s\n", cabecalho[3].descricao, s->nomeServidor);
+	if(s->cargoServidor[0] == '\0')
+		printf("%s: valor nao declarado\n\n", cabecalho[4].descricao);
+	else
+		printf("%s: %s\n\n", cabecalho[4].descricao, s->cargoServidor);
 }
 
 void resetarServidor(Servidor *s){
 	int i;
 	s->telefoneServidor[0] = '\0';
+	// Preenchendo lixo como '@'
 	for(i = 1; i < 14; i++)
 		s->telefoneServidor[i] = '@';
 	s->nomeServidor[0] = '\0';
@@ -45,28 +74,28 @@ void parsearDadosServidor(char *line, Servidor *s){
 	// Garantir inicializacao correta dos campos caso encontre valores nulos
 	resetarServidor(s);
 
-	// Reading ID
+	// Lendo ID
 	s->idServidor = (int) strtol(line, &cptr, 10);
-	cptr++; // Skips ','
-	// Reading salary
+	cptr++; // Pula ','
+	// Lendo salario
 	s->salarioServidor = (double) strtod(cptr, &cptr);
 	cptr++;
 
-	// Reading phone
+	// Lendo telefone
 	if(sscanf(cptr, "%[^,]", s->telefoneServidor) == 0){
 		cptr++;
 	}
 	else {
 		cptr += 15;
 	}
-	// Reading role
+	// Lendo nome
 	if(sscanf(cptr, "%[^,]", s->nomeServidor) == 0){
 		cptr++;
 	}
 	else {
 		cptr = cptr + strlen(s->nomeServidor) + 1;
 	}
-	// Reading name if line isn't over or found the 'mysterious' vertical tab
+	// Lendo nome ateh encontrar tabulacao vertical ou caractere nova linha
 	while((*cptr != 13 && *cptr != 0) && *cptr != 10){
 		s->cargoServidor[i] = *cptr;
 		i++;
@@ -124,6 +153,7 @@ int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 		fwrite(s->cargoServidor, sizeof(char), tamanhoCargo-1, targetFile);
 	}
 
+	// Escreve @ como lixo no final do registro, de acordo com o argumento de entrada
 	for(i=0; i < extra; i++){
 		fwrite(&trash, sizeof(char), 1, targetFile);
 	}
@@ -145,16 +175,22 @@ int lerRegistro(FILE *inputFile, Servidor *s){
 	int aux, tamanhoRegistro;
 	resetarServidor(s);
 
-	// Leitura
-	fread(&caux, sizeof(char), 1, inputFile);
+	// Leitura caso nao EOF
+	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 0;
+
+	// Se leu-se lixo ocorreu algum erro e retorna 0, assume-se posicao correta para leitura
+	// quando esta funcao eh chamada
+	if(caux == '@') return 0;
+
+	// Leitura de fato do registro
 	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
-	if(feof(inputFile) || ferror(inputFile)) return -1;
 	if(tamanhoRegistro < 0){
 		fprintf(stderr, "Critical error, read unexpected value from file.\n");
 		return -2;
 	}
 	buffer = (char*) malloc(sizeof(char)*tamanhoRegistro);
 	fread(buffer, sizeof(char), tamanhoRegistro, inputFile);
+	// Le o registro inteiro em um buffer de memoria, para interpretacao dos dados.
 	memcpy(&s->idServidor, buffer+8, 4);
 	memcpy(&s->salarioServidor, buffer+12, 8);
 	memcpy(s->telefoneServidor, buffer+20, 14);
@@ -188,8 +224,39 @@ int lerRegistro(FILE *inputFile, Servidor *s){
 		free(buffer);
 		return tamanhoRegistro+5;
 	}
+	// Ambos nomes e cargo nao nulos
 	memcpy(s->cargoServidor, cptr+5, aux-1);
 	cptr = NULL;
 	free(buffer);
 	return tamanhoRegistro+5;
+}
+
+int testarCampo(Servidor *s, char *nomeCampo, char *argumento){
+	// Primeiro testa-se qual campo esta sendo comparado
+	if(!strcmp(nomeCampo, "idServidor")){
+		int auxi;
+		// Entao retira do argumento a informacao a ser comparada
+		sscanf(argumento, "%d", &auxi);
+		if(auxi == s->idServidor)
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "salarioServidor")){
+		double auxd;
+		sscanf(argumento, "%lf", &auxd);
+		if(auxd == s->salarioServidor)
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "telefoneServidor")){
+		if(!strncmp(argumento, s->telefoneServidor, 14))
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "nomeServidor")){
+		if(!strcmp(argumento, s->nomeServidor))
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "cargoServidor")){
+		if(!strcmp(argumento, s->cargoServidor))
+			return 1;
+	}
+	return 0;
 }

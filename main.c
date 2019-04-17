@@ -4,17 +4,29 @@
 #include "orgarq_servidor.h"
 #include "orgarq_cabecalho.h"
 
-
+/*  Funcao que responde a funcionalidade 1
+	Recebe strings com os nomes do arquivo.csv de entrada e .bin de saida
+	Retorna 0 para sucesso e >0 em caso de erro	*/
 int gerarArquivoSaida(char *inputFileName, char *outputFileName);
+
+/*	Funcao que responde a funcionalidade 2
+	Recebe a string com o nome do arquivo.bin que sera lido
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mostrarArquivo(char *outputFileName);
-int mostrarRegistros(char *inputFileName, char *nomeCampo, void *value);
+
+/*	Funcao que responde a funcionalidade 3
+	Recebe a string com nome do arquivo.bin que sera lido
+		uma string que informa o campo que sera buscado
+		e uma string com o valor desse campo
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
+int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento);
 
 int main(){
 	char inputFileName[50];
 	char outputFileName[50];
 	char nomeCampo[40];
-	void *value;
-	int funcionalidade;
+	char argumentos[MAX_TAM_CAMPO];
+	int funcionalidade, i;
 
 	// Decisao de funcionalidade
 	scanf("%d", &funcionalidade);
@@ -33,36 +45,14 @@ int main(){
 			break;
 		// Caso 3 - Busca de registros em arquivo binario com base em um campo
 		case 3:
-			scanf("%s", inputFileName);
+			scanf("%s ", inputFileName);
 			scanf("%s ", nomeCampo);
-			if(strcmp(nomeCampo, "idServidor") == 0){
-				value = (int *)malloc(sizeof(int));
-				scanf("%d", (int *)value);
-				free((int *)value);
-			}
-			else if(strcmp(nomeCampo, "salarioServidor") == 0){
-				value = (double *)malloc(sizeof(double));
-				scanf("%lf", (double *)value);
-				free((double *)value);
-			}
-			else if(strcmp(nomeCampo, "telefoneServidor") == 0){
-				value = (char *)malloc(sizeof(char)*14);
-				scanf("%s", (char *)value);
-				free((char *)value);
-			}
-			else if(strcmp(nomeCampo, "nomeServidor") == 0){
-				value = (char *)malloc(sizeof(char)*200);
-				scanf("%[^\n]", (char *)value);
-				free((char *)value);
-			}
-			else if(strcmp(nomeCampo, "cargoServidor") == 0){
-				value = (char *)malloc(sizeof(char)*200);
-				scanf("%[^\n]", (char *)value);
-				free(value);
-			}
-			else
-				fprintf(stderr, "Erro de entrada funcionalidade 3.");
-			mostrarRegistros(inputFileName, nomeCampo, value);
+			fgets(argumentos, 200, stdin);
+			for(i=0; i < strlen(argumentos); i++)
+			// Removendo tabulacoes verticais ou caractere de nova linha do argumento
+				if(argumentos[i] == 13 || argumentos[i] == '\n')
+					argumentos[i] = '\0';
+			mostrarRegistros(inputFileName, nomeCampo, argumentos);
 			break;
 	
 		default:
@@ -79,33 +69,38 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 	FILE *inputFile;
 
 	Servidor data1, data2;
-	data1.nomeServidor = malloc(200);
-	data1.cargoServidor = malloc(200);
-	data2.nomeServidor = malloc(200);
-	data2.cargoServidor = malloc(200);
+	// Tamanho maximo dos campos variaveis definidos com um macro
+	// no arquivo orgarq_servidor.h; Considerado 200.
+	data1.nomeServidor = malloc(MAX_TAM_CAMPO);
+	data1.cargoServidor = malloc(MAX_TAM_CAMPO);
+	data2.nomeServidor = malloc(MAX_TAM_CAMPO);
+	data2.cargoServidor = malloc(MAX_TAM_CAMPO);
 
 	outputFile = fopen(outputFileName, "wb");
+	// Teste de sucesso de abertura do arquivo de entrada .csv
 	if(outputFile == NULL){
 		fprintf(stderr, "Error creating output file.\n");
 		return 1;
 	}
 	inputFile = fopen(inputFileName, "r");
+	// Teste de sucesso de abertura do arquivo de saida .bin
 	if(inputFile == NULL){
 		//fprintf(stderr, "Error opening %s file.\n", inputFileName);
-		fprintf(stdout, "Falha no carregamento do arquivo.");
+		fprintf(stdout, "Falha no carregamento do arquivo.\n");
 		return 1;
 	}
 
 	// Declaracao variaveis para leitura e escrita
 	int fill = 0, pos = 0;
-	char status = 0;
+	char status = '0';
 	char line[256];
 
 	campoCabecalho *cab;
-	// Leitura do nome dos campos do arquivo.csv
+	// Leitura da descricao dos campos do arquivo.csv
 	cab = parsearCabecalho(inputFile);
 
 	// Escrita do cabecalho
+	// status = '0' pois serao feitas escritas no binario 
 	fwrite(&status, sizeof(char), 1, outputFile);
 	escreverCabecalho(outputFile, cab);
 
@@ -115,6 +110,9 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 	while(fgets(line, 256, inputFile)){
 		parsearDadosServidor(line, &data2);
 		fill = pos + tamanhoRegServidor(&data1)+5;
+		// Verifica se o tamanho dos dois ultimos registros a serem escritos
+		// irao ultrapassar o tamanho da pagina de disco, dividindo o segundo
+		// entre diferentes paginas de disco
 		if((fill+tamanhoRegServidor(&data2)+5) > TAM_PAGDISCO){
 			fill = TAM_PAGDISCO - fill;
 			escreverRegistro(&data1, outputFile, fill);
@@ -127,10 +125,13 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 	}
 	escreverRegistro(&data1, outputFile, 0);
 
-	status = 1;
+	// Atualiza status para '1' apos finalizacao da escrita no arquivo
+	status = '1';
 	fseek(outputFile, 0, SEEK_SET);
 	fwrite(&status, sizeof(char), 1, outputFile);
-	printf("%s\n", outputFileName);
+	printf("%s", outputFileName);
+
+	free(cab);
 	free(data1.nomeServidor);
 	free(data1.cargoServidor);
 	free(data2.nomeServidor);
@@ -144,29 +145,31 @@ int mostrarArquivo(char *inputFileName){
 	int regCount = 0, byteCount = 0, resultadoLeitura;
 	char status;
 	
-	// Abertura e verificacao do arquivo
 	inputFile = fopen(inputFileName, "r");
+	// Teste de sucesso de abertura do arquivo de entrada .bin
 	if(inputFile == NULL){
 		//fprintf(stderr, "Error opening %s file.\n", inputFileName);
 		fprintf(stdout, "Falha no processamento do arquivo.\n");
-
 		return 1;
 	}
 
 	// Verificando integridade do arquivo
 	fread(&status, sizeof(char), 1, inputFile);
-	if(status == 0){
+	if(status == '0'){
 		fprintf(stdout, "Falha no processamento do arquivo.\n");
-		return -1;
+		return 2;
 	}
 
 	// Alocacao caso nenhum erro tenha sido encontrado
-	data.nomeServidor = (char *) malloc(200*sizeof(char));
-	data.cargoServidor = (char *) malloc(200*sizeof(char));
+	data.nomeServidor = (char *) malloc(MAX_TAM_CAMPO*sizeof(char));
+	data.cargoServidor = (char *) malloc(MAX_TAM_CAMPO*sizeof(char));
 
 	// Posiciona na primeira pagina de disco de dados
 	fseek(inputFile, TAM_PAGDISCO, SEEK_SET);
+	byteCount += 32000;
 	while(1){
+		// Utilizando valor retornado pela funcao lerRegistro para
+		// guardar quantidade de bytes lidos.
 		resultadoLeitura = lerRegistro(inputFile, &data);
 		if(resultadoLeitura < 0) {
 			free(data.nomeServidor);
@@ -182,7 +185,7 @@ int mostrarArquivo(char *inputFileName){
 	if(regCount == 0)
 		printf("Registro inexistente.");
 	else
-		printf("Numero de paginas de disco acessadas: %d\n", (byteCount/TAM_PAGDISCO)+1);
+		printf("Número de páginas de disco acessadas: %d\n", (byteCount/TAM_PAGDISCO)+1);
 
 	free(data.nomeServidor);
 	free(data.cargoServidor);
@@ -190,81 +193,57 @@ int mostrarArquivo(char *inputFileName){
 	return 0;
 }
 
-int mostrarRegistros(char *inputFileName, char *nomeCampo, void *value){
+int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 	FILE *inputFile;
 	Servidor data;
-	int regCount = 0, byteCount = 0, status = 0;
+	char status = '0';
+	campoCabecalho cab[5];
+	int bytesLidos = 0, bytesTotais = 0, registros = 0, isUnique = 0;
 
-	// Abertura e verificacao do arquivo
 	inputFile = fopen(inputFileName, "r");
 	if(inputFile == NULL){
-		//fprintf(stderr, "Error opening %s file.\n", inputFileName);
 		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		return 1;
 	}
 
-	// Verificando integridade do arquivo
 	fread(&status, sizeof(char), 1, inputFile);
-	if(status == 0){
+	if(status == '0'){
 		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		fclose(inputFile);
-		return -1;
+		return 2;
 	}
 
-	//
-	data.nomeServidor = (char *) malloc(200);
-	data.cargoServidor = (char *) malloc(200);
+	if(!strcmp(nomeCampo, "idServidor")) isUnique = 1;
+	data.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 
-	// Posiciona na primeira pagina de disco de dados
-	fseek(inputFile, TAM_PAGDISCO, SEEK_SET);
-	while(1){
-		byteCount+= lerRegistro(inputFile, &data);
-		if(feof(inputFile) || ferror(inputFile)) break;
-		else {
-			if(strcmp(nomeCampo, "idServidor") == 0){
-				int *id = (int *)value;
-				if(data.idServidor == *id){
-					imprimirCamposServidor(&data);
-					regCount++;
-				}
-			}
-			else if(strcmp(nomeCampo, "salarioServidor") == 0){
-				double *salario = (double *)value;
-				if(data.salarioServidor == *salario){
-					imprimirCamposServidor(&data);
-					regCount++;
-				}
-			}
-			else if(strcmp(nomeCampo, "telefoneServidor") == 0){
-				char *telefone = (char *)value;
-				if(strncmp(data.telefoneServidor, telefone, 14) == 0){
-					imprimirCamposServidor(&data);
-					regCount++;
-				}
-			}
-			else if(strcmp(nomeCampo, "nomeServidor") == 0){
-				char *nome = (char *)value;
-				if(strcmp(data.nomeServidor, nome) == 0){
-					imprimirCamposServidor(&data);
-					regCount++;
-				}
-			}
-			else if(strcmp(nomeCampo, "cargoServidor") == 0){
-				char *cargo = (char *)value;
-				if(strcmp(data.cargoServidor, cargo) == 0){
-					imprimirCamposServidor(&data);
-					regCount++;
-				}
-			}
+	// Leitura de metadados com descricao dos campos
+	lerCabecalho(cab, 5, inputFile);
+
+	// Posiciona no inicio da primeira pagina de dados do arquivo
+	fseek(inputFile, 32000, SEEK_SET);
+	bytesTotais = 32000;
+
+	// Leitura dos registros
+	while((bytesLidos = lerRegistro(inputFile, &data)) > 0){
+		bytesTotais += bytesLidos;
+		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
+		if(testarCampo(&data, nomeCampo, argumento)){
+			imprimirCamposServidor(&data, cab);
+			registros++;
+			// Se o campo for considerado único, a leitura é interrompida
+			// ao encontrar o primeiro registro válido
+			if(isUnique == 1) break;
 		}
 	}
-	if(regCount == 0)
-		printf("Registro inexistente.\n");
-	else
-		printf("Numero de paginas de disco acessadas: %d\n", (byteCount/TAM_PAGDISCO)+1);
 
+	// Imprime de acordo com o numero de registros validos
+	if(registros == 0) printf("Registro inexistente.\n");
+	else printf("Número de páginas de disco acessadas: %d\n", (bytesTotais/TAM_PAGDISCO)+1);
+
+	fclose(inputFile);
 	free(data.nomeServidor);
 	free(data.cargoServidor);
-	fclose(inputFile);
+
 	return 0;
 }
