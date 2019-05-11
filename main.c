@@ -1,8 +1,11 @@
+/*	Aluno: Lucas Sobral Fontes Cardoso
+	Nº USP: 8957176	*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "orgarq_servidor.h"
-#include "orgarq_cabecalho.h"
+#include "./src/orgarq_servidor.h"
+#include "./src/orgarq_cabecalho.h"
+#include "./src/utils.h"
 
 /*  Funcao que responde a funcionalidade 1
 	Recebe strings com os nomes do arquivo.csv de entrada e .bin de saida
@@ -21,12 +24,18 @@ int mostrarArquivo(char *outputFileName);
 	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento);
 
+int removerServidor(char *inputFileName, char *nomeCampo, char *argumento);
+
+int inserirServidor(char *outputFileName);
+
+int	atualizarServidor(char *updateFileName);
+
 int main(){
 	char inputFileName[50];
 	char outputFileName[50];
 	char nomeCampo[40];
 	char argumentos[MAX_TAM_CAMPO];
-	int funcionalidade, i;
+	int funcionalidade, i, n = 0;
 
 	// Decisao de funcionalidade
 	scanf("%d", &funcionalidade);
@@ -50,15 +59,40 @@ int main(){
 			fgets(argumentos, 200, stdin);
 			for(i=0; i < strlen(argumentos); i++)
 			// Removendo tabulacoes verticais ou caractere de nova linha do argumento
-				if(argumentos[i] == 13 || argumentos[i] == '\n')
+				if(argumentos[i] == '\r' || argumentos[i] == '\n')
 					argumentos[i] = '\0';
 			mostrarRegistros(inputFileName, nomeCampo, argumentos);
 			break;
-	
+		// Caso 4 - N remocoes logicas de um ou mais registros com base em um campo
+		case 4:
+			scanf("%s %d", inputFileName, &n);
+			for(i=0; i<n; i++){
+				scanf("%s ", nomeCampo);
+				scan_quote_string(argumentos);
+				removerServidor(inputFileName, nomeCampo, argumentos);
+			}
+			break;
+		// Caso 5 - N insercoes de registros no arquivo
+		case 5:
+			scanf("%s %d", outputFileName, &n);
+			for(i=0; i<n; i++){
+				inserirServidor(outputFileName);
+			}
+			break;
+		// Caso 6 - N atualizacoes de registros do arquivo
+		case 6:
+			scanf("%s %d", outputFileName, &n);
+			for(i=0; i<n; i++){
+				atualizarServidor(outputFileName);
+			}
+			break;
 		default:
 			printf("Funcionalidade desconhecida.\n");
 			break;
 	}
+
+	/*if(funcionalidade != 2 && funcionalidade != 3)
+		binarioNaTela2("arquivoTrab1.bin");*/
 
 	return 0;
 }
@@ -129,7 +163,7 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 	status = '1';
 	fseek(outputFile, 0, SEEK_SET);
 	fwrite(&status, sizeof(char), 1, outputFile);
-	printf("%s", outputFileName);
+	printf("%s\n", outputFileName);
 
 	free(cab);
 	free(data1.nomeServidor);
@@ -245,5 +279,124 @@ int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 	free(data.nomeServidor);
 	free(data.cargoServidor);
 
+	return 0;
+}
+
+int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
+	FILE *inputFile;
+	char status = '0';
+	int isUnique = 0;
+	long removePosition;
+
+	inputFile = fopen(inputFileName, "r+");
+	if(inputFile == NULL){
+		fprintf(stdout, "Falha no processamento do arquivo.\n");
+		return 1;
+	}
+
+	fread(&status, sizeof(char), 1, inputFile);
+	if(status == '0'){
+		fprintf(stdout, "Falha no processamento do arquivo.\n");
+		fclose(inputFile);
+		return 2;
+	}
+
+	if(!strcmp(nomeCampo, "idServidor")) isUnique = 1;
+
+	fseek(inputFile, 32000, SEEK_SET);
+	while((removePosition = buscarRegistro(inputFile, nomeCampo, argumento)) != -1){
+		fseek(inputFile, removePosition, SEEK_SET);
+		removerRegistro(inputFile);
+		if(isUnique) break;
+	}
+
+	return 0;
+}
+
+int inserirServidor(char *outputFileName){
+	Servidor inputData;
+	FILE *outputFile;
+	char status = '0';
+
+	outputFile = fopen(outputFileName, "r+");
+	if(outputFile == NULL){
+		fprintf(stdout, "Falha no processamento do arquivo.\n");
+		return 1;
+	}
+
+	fread(&status, sizeof(char), 1, outputFile);
+	if(status == '0'){
+		fprintf(stdout, "Falha no processamento do arquivo.\n");
+		fclose(outputFile);
+		return 2;
+	}
+
+	inputData.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	inputData.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	lerServidor(&inputData);
+
+	inserirRegistro(outputFile, inputData);
+
+	free(inputData.nomeServidor);
+	free(inputData.cargoServidor);
+	fclose(outputFile);
+	return 0;
+}
+
+int atualizarServidor(char *updateFileName){
+	// Leitura de argumentos de entrada
+	char campoBusca[40], campoAtualiza[40];
+	char argBusca[MAX_TAM_CAMPO], argAtualiza[MAX_TAM_CAMPO];
+	scanf("%s", campoBusca);
+	scan_quote_string(argBusca);
+	scanf("%s", campoAtualiza);
+	scan_quote_string(argAtualiza);
+
+	FILE *updateFile;
+	char status = '0';
+	int isUnique = 0;
+	long updatePosition;
+	Servidor data;
+
+	updateFile = fopen(updateFileName, "r+");
+	if(updateFile == NULL){
+		fprintf(stdout, "Falha no processamento do arquivo.\n");
+		return 1;
+	}
+
+	fread(&status, sizeof(char), 1, updateFile);
+	if(status == '0'){
+		fprintf(stdout, "Falha no processamento do arquivo.\n");
+		fclose(updateFile);
+		return 2;
+	}
+
+	if(!strcmp(campoBusca, "idServidor")) isUnique = 1;
+	data.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+
+	fseek(updateFile, 32000, SEEK_SET);
+	while(lerRegistro(updateFile, &data) > 0){
+		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
+		if(testarCampo(&data, campoBusca, argBusca)){
+			printf("%lx\n", updatePosition);
+			imprimirLinhaServidor(&data);
+			fseek(updateFile, updatePosition, SEEK_SET);
+			atualizarRegistro(updateFile, campoAtualiza, argAtualiza, &data);
+			// Se o campo for considerado único, a leitura é interrompida
+			// ao encontrar o primeiro registro válido
+			if(isUnique == 1) break;
+		}
+		updatePosition = ftell(updateFile);
+	}
+	/*while((updatePosition = buscarRegistro(updateFile, campoBusca, argBusca)) != -1){
+		fseek(updateFile, updatePosition, SEEK_SET);
+		atualizarRegistro(updateFile, campoAtualiza, argAtualiza);
+		if(isUnique) break;
+	}*/
+
+	free(data.nomeServidor);
+	free(data.cargoServidor);
+	fclose(updateFile);
 	return 0;
 }

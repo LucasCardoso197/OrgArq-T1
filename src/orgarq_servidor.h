@@ -5,7 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "orgarq_cabecalho.h"
+#include "orgarq_listaRemocao.h"
+#include "utils.h"
 
+//------------- DECLARAÇÕES -------------//
 // Tamanho maximo dos campos de tamanho variavel nomeServidor e cargoServidor
 #define MAX_TAM_CAMPO 200
 
@@ -15,6 +18,9 @@ typedef struct {
 	char telefoneServidor[14], *nomeServidor, *cargoServidor;
 } Servidor;
 
+
+
+//------------- FUNÇÕES DE ENTRADA E SAÍDA -------------//
 /* 	Funcao responsavel pela impressao dos dados do servidor em uma unica linha
 	Imprime: id salario telefone tamanhoDoNome(sem \0) nome tamanhoDoCargo(sem \0) e cargo
 	Argumentos: - s: servidor a ser impresso	*/
@@ -28,6 +34,16 @@ void imprimirLinhaServidor(Servidor *s);
 				- cabecalho: vetor com descricao e tags dos cabecalhos	*/
 void imprimirCamposServidor(Servidor *s, campoCabecalho *cabecalho);
 
+/*	Funcao que pega uma linha de um arquivo .csv(comma separated values)
+	e interpreta seus dados, colocando na estrutura do servidor
+	Argumentos: - s: servidor que recebe os dados	*/
+void parsearDadosServidor(char *line, Servidor *s);
+
+void lerServidor(Servidor *s);
+
+
+
+//------------- FUNÇÕES AUXILIARES -------------//
 /*	Inicializa todos os campos do servidor com um valor nulo apropriado
 	Garante inicializacao dos lugares onde teriam lixo o valor @
 	Argumentos: - s: servidor a ser inicializado	*/
@@ -46,11 +62,16 @@ void copiarServidor(Servidor *target, Servidor *s);
 	Argumentos: - s: servidor com dados a serem configurados	*/
 int tamanhoRegServidor(Servidor *s);
 
-/*	Funcao que pega uma linha de um arquivo .csv(comma separated values)
-	e interpreta seus dados, colocando na estrutura do servidor
-	Argumentos: - s: servidor que recebe os dados	*/
-void parsearDadosServidor(char *line, Servidor *s);
+/*	Teste se o campo do registro de servidor eh igual ao argumento
+	Argumentos: - s: servidor que tera o campo comparado
+				- nomeCampo: nome que identifica qual campo sera comparado
+				- argumento: valor esperado que o campo deve ter em formato de texto
+	Retorna 1 em caso de igualdade e 0 na diferença	*/
+int testarCampo(Servidor *s, char *nomeCampo, char *argumento);
 
+
+
+//------------- FUNÇÕES DE INTERAÇÃO COM ARQUIVOS -------------//
 /*	Escreve um registro de servidor em um arquivo
 	Argumentos: - s: registro com dados que serao escritos
 				- target: ponteiro de arquivo onde os dados serao escritos
@@ -65,11 +86,12 @@ int escreverRegistro(Servidor *s, FILE* target, int extra);
 	Retonar o numero de bytes lidos, 0 em caso de falha */
 int lerRegistro(FILE *inputFile, Servidor *s);
 
-/*	Teste se o campo do registro de servidor eh igual ao argumento
-	Argumentos: - s: servidor que tera o campo comparado
-				- nomeCampo: nome que identifica qual campo sera comparado
-				- argumento: valor esperado que o campo deve ter em formato de texto
-	Retorna 1 em caso de igualdade e 0 na diferença	*/
-int testarCampo(Servidor *s, char *nomeCampo, char *argumento);
+int removerRegistro(FILE *inputFile);
+
+long buscarRegistro(FILE *inputFile, char *nomeCampo, char *argumento);
+
+int inserirRegistro(FILE *inputFile, Servidor s);
+
+int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s);
 
 #endif

@@ -1,5 +1,6 @@
 #include "orgarq_servidor.h"
 
+// Funções de entrada e saída
 void imprimirLinhaServidor(Servidor *s){
 	if(s == NULL) {
 		fprintf(stderr, "Attempt to print from null pointer.");
@@ -55,18 +56,6 @@ void imprimirCamposServidor(Servidor *s, campoCabecalho *cabecalho){
 		printf("%s: %s\n\n", cabecalho[4].descricao, s->cargoServidor);
 }
 
-void resetarServidor(Servidor *s){
-	int i;
-	s->telefoneServidor[0] = '\0';
-	// Preenchendo lixo como '@'
-	for(i = 1; i < 14; i++)
-		s->telefoneServidor[i] = '@';
-	s->nomeServidor[0] = '\0';
-	s->cargoServidor[0] = '\0';
-	s->idServidor = 0;
-	s->salarioServidor = 0.0f;
-}
-
 void parsearDadosServidor(char *line, Servidor *s){
 	char *cptr;
 	int i;
@@ -104,6 +93,36 @@ void parsearDadosServidor(char *line, Servidor *s){
 	s->cargoServidor[i] = '\0';
 }
 
+void lerServidor(Servidor *s){
+	char argAux[MAX_TAM_CAMPO];
+	resetarServidor(s);
+	int i;
+
+	scanf("%d ", &s->idServidor);
+	scanf("%s ", argAux);
+	if(strcmp(argAux, "NULO") == 0)
+		s->salarioServidor = strtod(argAux, NULL);
+	scan_quote_string(s->telefoneServidor);
+	if(s->telefoneServidor[0] == '\0')
+		for(i=1; i<14; i++)
+			s->telefoneServidor[i] = '@';
+	scan_quote_string(s->nomeServidor);
+	scan_quote_string(s->cargoServidor);
+}
+
+// Funções auxiliares
+void resetarServidor(Servidor *s){
+	int i;
+	s->telefoneServidor[0] = '\0';
+	// Preenchendo lixo como '@'
+	for(i = 1; i < 14; i++)
+		s->telefoneServidor[i] = '@';
+	s->nomeServidor[0] = '\0';
+	s->cargoServidor[0] = '\0';
+	s->idServidor = 0;
+	s->salarioServidor = 0.0f;
+}
+
 void copiarServidor(Servidor *target, Servidor *s){
 	int i;
 	target->idServidor = s->idServidor;
@@ -114,6 +133,47 @@ void copiarServidor(Servidor *target, Servidor *s){
 	strcpy(target->cargoServidor, s->cargoServidor);
 }
 
+int tamanhoRegServidor(Servidor *s){
+	int tamanhoNome = strlen(s->nomeServidor) + 2;
+	int tamanhoCargo = strlen(s->cargoServidor) + 2;
+	int tamanhoRegistro = (s->nomeServidor[0] == '\0') ? 34 : 34 + tamanhoNome + 4;
+	tamanhoRegistro = (s->cargoServidor[0] == '\0') ? tamanhoRegistro : tamanhoRegistro + tamanhoCargo + 4;
+	return tamanhoRegistro;
+}
+
+int testarCampo(Servidor *s, char *nomeCampo, char *argumento){
+	// Primeiro testa-se qual campo esta sendo comparado
+	if(!strcmp(nomeCampo, "idServidor")){
+		int auxi;
+		// Entao retira do argumento a informacao a ser comparada
+		sscanf(argumento, "%d", &auxi);
+		if(auxi == s->idServidor)
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "salarioServidor")){
+		double auxd;
+		sscanf(argumento, "%lf", &auxd);
+		if(auxd == s->salarioServidor)
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "telefoneServidor")){
+		if(!strncmp(argumento, s->telefoneServidor, 14))
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "nomeServidor")){
+		if(!strcmp(argumento, s->nomeServidor))
+			return 1;
+	}
+	else if (!strcmp(nomeCampo, "cargoServidor")){
+		if(!strcmp(argumento, s->cargoServidor))
+			return 1;
+	}
+	return 0;
+}
+
+
+
+//Funções de interação com arquivos
 int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 	char removido = '-', trash = '@', aux;
 	long encadeamentoLista = -1;
@@ -162,12 +222,26 @@ int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 	return tamanhoRegistro + 5;
 }
 
-int tamanhoRegServidor(Servidor *s){
-	int tamanhoNome = strlen(s->nomeServidor) + 2;
-	int tamanhoCargo = strlen(s->cargoServidor) + 2;
-	int tamanhoRegistro = (s->nomeServidor[0] == '\0') ? 34 : 34 + tamanhoNome + 4;
-	tamanhoRegistro = (s->cargoServidor[0] == '\0') ? tamanhoRegistro : tamanhoRegistro + tamanhoCargo + 4;
-	return tamanhoRegistro;
+long buscarRegistro(FILE *inputFile, char *nomeCampo, char *argumento){
+	Servidor data;
+	int bytesLidos;
+	long result = -1;
+
+	data.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+
+	while((bytesLidos = lerRegistro(inputFile, &data)) > 0){
+		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
+		if(testarCampo(&data, nomeCampo, argumento)){
+			result = ftell(inputFile) - bytesLidos;
+			break;
+		}
+	}
+
+	free(data.nomeServidor);
+	free(data.cargoServidor);
+
+	return result;
 }
 
 int lerRegistro(FILE *inputFile, Servidor *s){
@@ -178,16 +252,19 @@ int lerRegistro(FILE *inputFile, Servidor *s){
 	// Leitura caso nao EOF
 	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 0;
 
-	// Se leu-se lixo ocorreu algum erro e retorna 0, assume-se posicao correta para leitura
-	// quando esta funcao eh chamada
-	if(caux == '@') return 0;
-
 	// Leitura de fato do registro
 	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
 	if(tamanhoRegistro < 0){
 		fprintf(stderr, "Critical error, read unexpected value from file.\n");
 		return -2;
 	}
+
+	// Registro que esta tentando ler foi apagado
+	if(caux == '*') {
+		fseek(inputFile, tamanhoRegistro, SEEK_CUR);
+		return tamanhoRegistro+5;
+	}
+
 	buffer = (char*) malloc(sizeof(char)*tamanhoRegistro);
 	fread(buffer, sizeof(char), tamanhoRegistro, inputFile);
 	// Le o registro inteiro em um buffer de memoria, para interpretacao dos dados.
@@ -231,32 +308,133 @@ int lerRegistro(FILE *inputFile, Servidor *s){
 	return tamanhoRegistro+5;
 }
 
-int testarCampo(Servidor *s, char *nomeCampo, char *argumento){
-	// Primeiro testa-se qual campo esta sendo comparado
-	if(!strcmp(nomeCampo, "idServidor")){
-		int auxi;
-		// Entao retira do argumento a informacao a ser comparada
-		sscanf(argumento, "%d", &auxi);
-		if(auxi == s->idServidor)
-			return 1;
+long buscaProxRegistro(FILE *inputFile){
+	char caux;
+	int tamanhoRegistro;
+	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 0;
+
+	// Leitura do tamanho do registro
+	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
+	if(tamanhoRegistro < 0){
+		fprintf(stderr, "Critical error, read unexpected value from file.\n");
+		return -1;
 	}
-	else if (!strcmp(nomeCampo, "salarioServidor")){
-		double auxd;
-		sscanf(argumento, "%lf", &auxd);
-		if(auxd == s->salarioServidor)
-			return 1;
-	}
-	else if (!strcmp(nomeCampo, "telefoneServidor")){
-		if(!strncmp(argumento, s->telefoneServidor, 14))
-			return 1;
-	}
-	else if (!strcmp(nomeCampo, "nomeServidor")){
-		if(!strcmp(argumento, s->nomeServidor))
-			return 1;
-	}
-	else if (!strcmp(nomeCampo, "cargoServidor")){
-		if(!strcmp(argumento, s->cargoServidor))
-			return 1;
-	}
+
+	fseek(inputFile, tamanhoRegistro, SEEK_CUR);
+	return tamanhoRegistro+5;
+}
+
+int removerRegistro(FILE *inputFile){
+	char caux;
+	long pos;
+	int i, tam;
+	
+	if(inputFile == NULL) return 1;
+
+	pos = ftell(inputFile);
+	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 2;
+	if(caux == '@' || caux == '*') return 3;
+
+	fread(&tam, sizeof(int), 1, inputFile);
+
+	// Apagando
+	fseek(inputFile, 8, SEEK_CUR);
+	caux = '@';
+	for(i=8; i<tam; i++)
+		fwrite(&caux, sizeof(char), 1, inputFile);
+	fseek(inputFile, pos, SEEK_SET);
+	caux = '*';
+	fwrite(&caux, sizeof(char), 1, inputFile);
+	fseek(inputFile, tam+4, SEEK_CUR);
+
+	// Insercao lista
+	inserirLista(inputFile, pos, tam);
+
 	return 0;
 }
+
+int inserirRegistro(FILE *outputFile, Servidor s){
+	int i, extra, tam = tamanhoRegServidor(&s);
+	long enderecoInsercao, aux, lastSize;
+	char trash = '@';
+
+	enderecoInsercao = removerLista(outputFile, tam);
+	if(enderecoInsercao == -1){
+		fseek(outputFile, 0, SEEK_END);
+		aux = ftell(outputFile)%TAM_PAGDISCO;
+		printf("%ld\n", aux);
+		// Se a insercao do novo registro irá ocupar a proxima pagina
+		// de disco, preenchemos a atual para nao dividir o registro
+		if(aux+tam+5 > TAM_PAGDISCO){
+			// Encontrando o ultimo registro do arquivo para preenchimento
+			// Busca apenas a partir do começo da ultima pagina de disco
+			aux = ftell(outputFile)/TAM_PAGDISCO;
+			fseek(outputFile, aux*TAM_PAGDISCO, SEEK_SET);
+			while((aux = buscaProxRegistro(outputFile)) > 0)
+				lastSize = aux;
+			
+			// Preenchimento
+			aux = ftell(outputFile)%TAM_PAGDISCO;
+			fseek(outputFile, -(lastSize-1), SEEK_CUR);
+			lastSize += TAM_PAGDISCO-aux-5;
+			fwrite(&lastSize, sizeof(int), 1, outputFile);
+			fseek(outputFile, 0, SEEK_END);
+			for(i = 0; i < TAM_PAGDISCO-aux; i++)
+				fwrite(&trash, sizeof(char), 1, outputFile);
+		}
+	
+		escreverRegistro(&s, outputFile, 0);
+	}
+	else{
+		fseek(outputFile, enderecoInsercao+offset_tam_registro, SEEK_SET);
+		fread(&extra, sizeof(int), 1, outputFile);
+		fseek(outputFile, enderecoInsercao, SEEK_SET);
+		escreverRegistro(&s, outputFile, extra-tam);
+	}
+
+	return 0;
+}
+
+int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s){
+	Servidor new;
+	new.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	new.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+
+	copiarServidor(&new, &s);
+
+	if(!strcmp(campoAtualiza, "idServidor")){
+	}
+	else if (!strcmp(campoAtualiza, "salarioServidor")){
+	}
+	else if (!strcmp(campoAtualiza, "telefoneServidor")){
+	}
+	else if (!strcmp(campoAtualiza, "nomeServidor")){
+	}
+	else if (!strcmp(campoAtualiza, "cargoServidor")){
+	}
+	free(new.nomeServidor);
+	free(new.cargoServidor);
+	return 0;
+}
+
+/* 
+//057bae - 59
+//06ad38 - 5a
+//05057e - 62
+//8b14 - 63
+//8be5 - 67
+//d62c - 67
+void troll(int tam){
+	//long p = 0, n = 0;
+	FILE *arq = fopen("arquivoTrab1.bin", "r+");
+
+	printf("Remocao retornou %lx\n", removerLista(arq, tam));
+
+	buscarPosListaEstavel(arq, tam, &p, &n);
+	printf("Estavel: %lx and %lx\n", p, n);
+	buscarPosLista(arq, tam, &p, &n);
+	printf("Não estavel: %lx and %lx\n", p, n);
+
+	fclose(arq);
+}
+*/
