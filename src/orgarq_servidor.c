@@ -93,7 +93,7 @@ void parsearDadosServidor(char *line, Servidor *s){
 	s->cargoServidor[i] = '\0';
 }
 
-void lerServidor(Servidor *s){
+void scanServidor(Servidor *s){
 	char argAux[MAX_TAM_CAMPO];
 	resetarServidor(s);
 	int i;
@@ -362,7 +362,6 @@ int inserirRegistro(FILE *outputFile, Servidor s){
 	if(enderecoInsercao == -1){
 		fseek(outputFile, 0, SEEK_END);
 		aux = ftell(outputFile)%TAM_PAGDISCO;
-		printf("%ld\n", aux);
 		// Se a insercao do novo registro irá ocupar a proxima pagina
 		// de disco, preenchemos a atual para nao dividir o registro
 		if(aux+tam+5 > TAM_PAGDISCO){
@@ -396,24 +395,49 @@ int inserirRegistro(FILE *outputFile, Servidor s){
 }
 
 int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s){
-	Servidor new;
-	new.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
-	new.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	Servidor novo;
+	novo.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	novo.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 
-	copiarServidor(&new, &s);
-
+	// Criando registro de servidor atualizado
+	copiarServidor(&novo, s);
 	if(!strcmp(campoAtualiza, "idServidor")){
+		int id = atoi(argAtualiza);
+		novo.idServidor = id;
 	}
 	else if (!strcmp(campoAtualiza, "salarioServidor")){
+		double sal = atof(argAtualiza);
+		novo.salarioServidor = sal;
 	}
 	else if (!strcmp(campoAtualiza, "telefoneServidor")){
+		int i;
+		for(i=0; i<14; i++)
+			novo.telefoneServidor[i] = argAtualiza[i];
 	}
 	else if (!strcmp(campoAtualiza, "nomeServidor")){
+		strcpy(novo.nomeServidor, argAtualiza);
 	}
 	else if (!strcmp(campoAtualiza, "cargoServidor")){
+		strcpy(novo.cargoServidor, argAtualiza);
 	}
-	free(new.nomeServidor);
-	free(new.cargoServidor);
+
+	// Teste para definir tipo de atualização
+	int tamNovo = tamanhoRegServidor(&novo);
+	int tamAnt = tamanhoRegServidor(s);
+	if(tamNovo <= tamAnt){
+		// Atualização do registro in-place
+		escreverRegistro(&novo, updateFile, tamAnt-tamNovo);
+	}
+	else {
+		// Remoção do registro para inserção do atualizado
+		removerRegistro(updateFile);
+		long currentPos = ftell(updateFile);
+		inserirRegistro(updateFile, novo);
+		fseek(updateFile, currentPos, SEEK_SET);
+	}
+
+	free(novo.nomeServidor);
+	free(novo.cargoServidor);
 	return 0;
 }
 

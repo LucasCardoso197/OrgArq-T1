@@ -91,8 +91,8 @@ int main(){
 			break;
 	}
 
-	/*if(funcionalidade != 2 && funcionalidade != 3)
-		binarioNaTela2("arquivoTrab1.bin");*/
+	if(funcionalidade != 2 && funcionalidade != 3)
+		binarioNaTela2("arquivoTrab1.bin");
 
 	return 0;
 }
@@ -333,8 +333,10 @@ int inserirServidor(char *outputFileName){
 
 	inputData.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	inputData.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
-	lerServidor(&inputData);
+	// Leitura de servidor a ser inserido da entrada padrão
+	scanServidor(&inputData);
 
+	// Chama função de inserção
 	inserirRegistro(outputFile, inputData);
 
 	free(inputData.nomeServidor);
@@ -379,8 +381,6 @@ int atualizarServidor(char *updateFileName){
 	while(lerRegistro(updateFile, &data) > 0){
 		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
 		if(testarCampo(&data, campoBusca, argBusca)){
-			printf("%lx\n", updatePosition);
-			imprimirLinhaServidor(&data);
 			fseek(updateFile, updatePosition, SEEK_SET);
 			atualizarRegistro(updateFile, campoAtualiza, argAtualiza, &data);
 			// Se o campo for considerado único, a leitura é interrompida

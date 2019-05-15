@@ -21,6 +21,7 @@ test5:
 	./main < ./_input/4.in
 	./main < ./_input/5.in
 test6:
+	./main < ./_input/1.in
 	./main < ./_input/6.in
 dump:
 	hexdump -Cv arquivoTrab1.bin > ./_output/out.txt

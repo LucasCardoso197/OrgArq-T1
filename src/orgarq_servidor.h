@@ -39,7 +39,7 @@ void imprimirCamposServidor(Servidor *s, campoCabecalho *cabecalho);
 	Argumentos: - s: servidor que recebe os dados	*/
 void parsearDadosServidor(char *line, Servidor *s);
 
-void lerServidor(Servidor *s);
+void scanServidor(Servidor *s);
 
 
 
