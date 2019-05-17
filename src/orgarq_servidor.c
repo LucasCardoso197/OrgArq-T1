@@ -100,7 +100,7 @@ void scanServidor(Servidor *s){
 
 	scanf("%d ", &s->idServidor);
 	scanf("%s ", argAux);
-	if(strcmp(argAux, "NULO") == 0)
+	if(strcmp(argAux, "NULO") != 0)
 		s->salarioServidor = strtod(argAux, NULL);
 	scan_quote_string(s->telefoneServidor);
 	if(s->telefoneServidor[0] == '\0')
@@ -120,7 +120,7 @@ void resetarServidor(Servidor *s){
 	s->nomeServidor[0] = '\0';
 	s->cargoServidor[0] = '\0';
 	s->idServidor = 0;
-	s->salarioServidor = 0.0f;
+	s->salarioServidor = -1.0f;
 }
 
 void copiarServidor(Servidor *target, Servidor *s){
@@ -230,9 +230,10 @@ long buscarRegistro(FILE *inputFile, char *nomeCampo, char *argumento){
 	data.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 
-	while((bytesLidos = lerRegistro(inputFile, &data)) > 0){
+	// Leitura sequencial
+	while((bytesLidos = lerRegistro(inputFile, &data)) != 0){
 		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
-		if(testarCampo(&data, nomeCampo, argumento)){
+		if(testarCampo(&data, nomeCampo, argumento) && bytesLidos != -1){
 			result = ftell(inputFile) - bytesLidos;
 			break;
 		}
@@ -262,7 +263,7 @@ int lerRegistro(FILE *inputFile, Servidor *s){
 	// Registro que esta tentando ler foi apagado
 	if(caux == '*') {
 		fseek(inputFile, tamanhoRegistro, SEEK_CUR);
-		return tamanhoRegistro+5;
+		return -1;
 	}
 
 	buffer = (char*) malloc(sizeof(char)*tamanhoRegistro);
@@ -440,25 +441,3 @@ int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, 
 	free(novo.cargoServidor);
 	return 0;
 }
-
-/* 
-//057bae - 59
-//06ad38 - 5a
-//05057e - 62
-//8b14 - 63
-//8be5 - 67
-//d62c - 67
-void troll(int tam){
-	//long p = 0, n = 0;
-	FILE *arq = fopen("arquivoTrab1.bin", "r+");
-
-	printf("Remocao retornou %lx\n", removerLista(arq, tam));
-
-	buscarPosListaEstavel(arq, tam, &p, &n);
-	printf("Estavel: %lx and %lx\n", p, n);
-	buscarPosLista(arq, tam, &p, &n);
-	printf("Não estavel: %lx and %lx\n", p, n);
-
-	fclose(arq);
-}
-*/

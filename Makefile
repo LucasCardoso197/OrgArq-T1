@@ -23,6 +23,8 @@ test5:
 test6:
 	./main < ./_input/1.in
 	./main < ./_input/6.in
+testCustom:
+	./main < ./_input/custom.in
 dump:
 	hexdump -Cv arquivoTrab1.bin > ./_output/out.txt
 clean:

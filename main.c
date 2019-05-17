@@ -35,7 +35,7 @@ int main(){
 	char outputFileName[50];
 	char nomeCampo[40];
 	char argumentos[MAX_TAM_CAMPO];
-	int funcionalidade, i, n = 0;
+	int funcionalidade, i, result, n = 0;
 
 	// Decisao de funcionalidade
 	scanf("%d", &funcionalidade);
@@ -45,12 +45,12 @@ int main(){
 		case 1:
 			scanf("%s", inputFileName);
 			strcpy(outputFileName, "arquivoTrab1.bin");
-			gerarArquivoSaida(inputFileName, outputFileName);
+			result = gerarArquivoSaida(inputFileName, outputFileName);
 			break;
 		// Caso 2 - Impressao de todos os registros de um arquivo binario
 		case 2:
 			scanf("%s", outputFileName);
-			mostrarArquivo(outputFileName);
+			result = mostrarArquivo(outputFileName);
 			break;
 		// Caso 3 - Busca de registros em arquivo binario com base em um campo
 		case 3:
@@ -61,7 +61,7 @@ int main(){
 			// Removendo tabulacoes verticais ou caractere de nova linha do argumento
 				if(argumentos[i] == '\r' || argumentos[i] == '\n')
 					argumentos[i] = '\0';
-			mostrarRegistros(inputFileName, nomeCampo, argumentos);
+			result = mostrarRegistros(inputFileName, nomeCampo, argumentos);
 			break;
 		// Caso 4 - N remocoes logicas de um ou mais registros com base em um campo
 		case 4:
@@ -69,21 +69,22 @@ int main(){
 			for(i=0; i<n; i++){
 				scanf("%s ", nomeCampo);
 				scan_quote_string(argumentos);
-				removerServidor(inputFileName, nomeCampo, argumentos);
+				result = removerServidor(inputFileName, nomeCampo, argumentos);
 			}
+			strcpy(outputFileName, inputFileName);
 			break;
 		// Caso 5 - N insercoes de registros no arquivo
 		case 5:
 			scanf("%s %d", outputFileName, &n);
 			for(i=0; i<n; i++){
-				inserirServidor(outputFileName);
+				result = inserirServidor(outputFileName);
 			}
 			break;
 		// Caso 6 - N atualizacoes de registros do arquivo
 		case 6:
 			scanf("%s %d", outputFileName, &n);
 			for(i=0; i<n; i++){
-				atualizarServidor(outputFileName);
+				result = atualizarServidor(outputFileName);
 			}
 			break;
 		default:
@@ -91,8 +92,10 @@ int main(){
 			break;
 	}
 
-	if(funcionalidade != 2 && funcionalidade != 3)
-		binarioNaTela2("arquivoTrab1.bin");
+	if(result != 0)
+		printf("Falha no processamento do arquivo.\n");
+	//else if(funcionalidade != 2 && funcionalidade != 3)
+		//binarioNaTela2(outputFileName);
 
 	return 0;
 }
@@ -176,21 +179,19 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 int mostrarArquivo(char *inputFileName){
 	FILE *inputFile;
 	Servidor data;
-	int regCount = 0, byteCount = 0, resultadoLeitura;
+	int resultadoLeitura, registros = 0;
 	char status;
 	
 	inputFile = fopen(inputFileName, "r");
 	// Teste de sucesso de abertura do arquivo de entrada .bin
 	if(inputFile == NULL){
 		//fprintf(stderr, "Error opening %s file.\n", inputFileName);
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		return 1;
 	}
 
 	// Verificando integridade do arquivo
 	fread(&status, sizeof(char), 1, inputFile);
 	if(status == '0'){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		return 2;
 	}
 
@@ -200,26 +201,15 @@ int mostrarArquivo(char *inputFileName){
 
 	// Posiciona na primeira pagina de disco de dados
 	fseek(inputFile, TAM_PAGDISCO, SEEK_SET);
-	byteCount += 32000;
-	while(1){
-		// Utilizando valor retornado pela funcao lerRegistro para
-		// guardar quantidade de bytes lidos.
-		resultadoLeitura = lerRegistro(inputFile, &data);
-		if(resultadoLeitura < 0) {
-			free(data.nomeServidor);
-			free(data.cargoServidor);
-			fclose(inputFile);
-			return resultadoLeitura;
+	while((resultadoLeitura = lerRegistro(inputFile, &data)) != 0){
+		if(resultadoLeitura > 0){
+			imprimirLinhaServidor(&data);
+			registros++;
 		}
-		byteCount+= resultadoLeitura;
-		if(feof(inputFile) || ferror(inputFile)) break;
-		else imprimirLinhaServidor(&data);
-		regCount++;
 	}
-	if(regCount == 0)
-		printf("Registro inexistente.");
-	else
-		printf("Número de páginas de disco acessadas: %d\n", (byteCount/TAM_PAGDISCO)+1);
+
+	if(registros == 0) printf("Registro inexistente.");
+	else printf("Número de páginas de disco acessadas: %ld\n", (ftell(inputFile)/TAM_PAGDISCO)+1);
 
 	free(data.nomeServidor);
 	free(data.cargoServidor);
@@ -232,7 +222,7 @@ int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 	Servidor data;
 	char status = '0';
 	campoCabecalho cab[5];
-	int bytesLidos = 0, bytesTotais = 0, registros = 0, isUnique = 0;
+	int registros = 0, isUnique = 0;
 
 	inputFile = fopen(inputFileName, "r");
 	if(inputFile == NULL){
@@ -256,11 +246,9 @@ int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 
 	// Posiciona no inicio da primeira pagina de dados do arquivo
 	fseek(inputFile, 32000, SEEK_SET);
-	bytesTotais = 32000;
 
 	// Leitura dos registros
-	while((bytesLidos = lerRegistro(inputFile, &data)) > 0){
-		bytesTotais += bytesLidos;
+	while((lerRegistro(inputFile, &data)) > 0){
 		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
 		if(testarCampo(&data, nomeCampo, argumento)){
 			imprimirCamposServidor(&data, cab);
@@ -273,7 +261,7 @@ int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 
 	// Imprime de acordo com o numero de registros validos
 	if(registros == 0) printf("Registro inexistente.\n");
-	else printf("Número de páginas de disco acessadas: %d\n", (bytesTotais/TAM_PAGDISCO)+1);
+	else printf("Número de páginas de disco acessadas: %ld\n", (ftell(inputFile)/TAM_PAGDISCO)+1);
 
 	fclose(inputFile);
 	free(data.nomeServidor);
@@ -290,18 +278,23 @@ int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
 
 	inputFile = fopen(inputFileName, "r+");
 	if(inputFile == NULL){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		return 1;
 	}
 
 	fread(&status, sizeof(char), 1, inputFile);
 	if(status == '0'){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		fclose(inputFile);
 		return 2;
 	}
 
 	if(!strcmp(nomeCampo, "idServidor")) isUnique = 1;
+
+	
+	// Escrita do cabecalho
+	// status = '0' pois serao feitas escritas no binario 
+	status = '0';
+	fseek(inputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, inputFile);
 
 	fseek(inputFile, 32000, SEEK_SET);
 	while((removePosition = buscarRegistro(inputFile, nomeCampo, argumento)) != -1){
@@ -309,6 +302,12 @@ int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
 		removerRegistro(inputFile);
 		if(isUnique) break;
 	}
+
+	// Escrita do cabecalho
+	// status = '1' pois todas as mudanças do arquivo acabaram
+	status = '1';
+	fseek(inputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, inputFile);
 
 	return 0;
 }
@@ -320,13 +319,11 @@ int inserirServidor(char *outputFileName){
 
 	outputFile = fopen(outputFileName, "r+");
 	if(outputFile == NULL){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		return 1;
 	}
 
 	fread(&status, sizeof(char), 1, outputFile);
 	if(status == '0'){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		fclose(outputFile);
 		return 2;
 	}
@@ -357,18 +354,16 @@ int atualizarServidor(char *updateFileName){
 	FILE *updateFile;
 	char status = '0';
 	int isUnique = 0;
-	long updatePosition;
+	long updatePosition = 32000, readResult;
 	Servidor data;
 
 	updateFile = fopen(updateFileName, "r+");
 	if(updateFile == NULL){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		return 1;
 	}
 
 	fread(&status, sizeof(char), 1, updateFile);
 	if(status == '0'){
-		fprintf(stdout, "Falha no processamento do arquivo.\n");
 		fclose(updateFile);
 		return 2;
 	}
@@ -378,9 +373,9 @@ int atualizarServidor(char *updateFileName){
 	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 
 	fseek(updateFile, 32000, SEEK_SET);
-	while(lerRegistro(updateFile, &data) > 0){
+	while((readResult = lerRegistro(updateFile, &data)) != 0){
 		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
-		if(testarCampo(&data, campoBusca, argBusca)){
+		if(testarCampo(&data, campoBusca, argBusca) && readResult > 0){
 			fseek(updateFile, updatePosition, SEEK_SET);
 			atualizarRegistro(updateFile, campoAtualiza, argAtualiza, &data);
 			// Se o campo for considerado único, a leitura é interrompida
@@ -389,11 +384,6 @@ int atualizarServidor(char *updateFileName){
 		}
 		updatePosition = ftell(updateFile);
 	}
-	/*while((updatePosition = buscarRegistro(updateFile, campoBusca, argBusca)) != -1){
-		fseek(updateFile, updatePosition, SEEK_SET);
-		atualizarRegistro(updateFile, campoAtualiza, argAtualiza);
-		if(isUnique) break;
-	}*/
 
 	free(data.nomeServidor);
 	free(data.cargoServidor);

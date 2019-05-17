@@ -35,7 +35,7 @@ int buscarPosLista(FILE *arq, int tam, long *prev, long *next){
 		*next = nextPos;
 		*prev = -1;
 		// Tam buscado nao cabe no comeco
-		if(tam < nextTam){
+		if(tam > nextTam){
 			return 2;
 		}
 		// Tam buscado cabe no comeco
@@ -45,7 +45,7 @@ int buscarPosLista(FILE *arq, int tam, long *prev, long *next){
 	// Tam maior do que o ultimo elemento da lista
 	if(tam > nextTam && nextPos == -1){
 		*next = -1;
-		*prev = -1;
+		*prev = prevPos;
 		return 4;
 	}
 	*next = nextPos;
@@ -88,7 +88,7 @@ int buscarPosListaEstavel(FILE *arq, int tam, long *prev, long *next){
 		*next = nextPos;
 		*prev = -1;
 		// Tam buscado nao cabe no comeco
-		if(tam < nextTam){
+		if(tam > nextTam){
 			return 2;
 		}
 		// Tam buscado cabe no comeco
@@ -98,7 +98,7 @@ int buscarPosListaEstavel(FILE *arq, int tam, long *prev, long *next){
 	// Tam maior do que o ultimo elemento da lista
 	if(tam > nextTam && nextPos == -1){
 		*next = -1;
-		*prev = -1;
+		*prev = prevPos;
 		return 4;
 	}
 	
@@ -111,7 +111,7 @@ int inserirLista(FILE *arq, long pos, int tam){
 	long prevPos, nextPos;
 	long startPos = ftell(arq);
 
-	buscarPosListaEstavel(arq, tam, &prevPos, &nextPos);
+	buscarPosLista(arq, tam, &prevPos, &nextPos);
 
 	// Insere começo da lista
 	if (prevPos == -1){
@@ -159,7 +159,6 @@ long removerLista(FILE *arq, int tam){
 		fwrite(&aux, sizeof(long), 1, arq);
 	}
 	else{
-		//fprintf(stderr, "Não foi possível realizar a remoção de %x\n", tam);
 		fseek(arq, startPos, SEEK_SET);
 		return -1;
 	}
@@ -167,9 +166,3 @@ long removerLista(FILE *arq, int tam){
 	fseek(arq, startPos, SEEK_SET);
 	return nextPos;
 }
-
-/*
-prev(size<s) -> next(size>s)
-Busca retorna pos de prev e next
-
-*/
