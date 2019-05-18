@@ -12,10 +12,12 @@
 	Retorna 0 para sucesso e >0 em caso de erro	*/
 int gerarArquivoSaida(char *inputFileName, char *outputFileName);
 
+
 /*	Funcao que responde a funcionalidade 2
 	Recebe a string com o nome do arquivo.bin que sera lido
 	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mostrarArquivo(char *outputFileName);
+
 
 /*	Funcao que responde a funcionalidade 3
 	Recebe a string com nome do arquivo.bin que sera lido
@@ -24,10 +26,28 @@ int mostrarArquivo(char *outputFileName);
 	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento);
 
+
+/*	Funcao que responde a funcionalidade 4
+	Recebe a string com nome do arquivo.bin que sera modificado
+		uma string que informa o campo que sera buscado para remocao
+		e uma string com o valor desse campo
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int removerServidor(char *inputFileName, char *nomeCampo, char *argumento);
 
+
+/*	Funcao que responde a funcionalidade 5
+	Recebe a string com nome do arquivo.bin que sera modificado
+		OBS: os dados do servidor que será inserido é lido dentro
+			 da função a partir da entrada padrão
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int inserirServidor(char *outputFileName);
 
+
+/*	Funcao que responde a funcionalidade 6
+	Recebe a string com nome do arquivo.bin que sera modificado
+		OBS: os dados do servidor que será inserido é lido dentro
+			 da função a partir da entrada padrão
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int	atualizarServidor(char *updateFileName);
 
 int main(){
@@ -92,10 +112,11 @@ int main(){
 			break;
 	}
 
+	// Saída para erro ou sucesso
 	if(result != 0)
 		printf("Falha no processamento do arquivo.\n");
-	//else if(funcionalidade != 2 && funcionalidade != 3)
-		//binarioNaTela2(outputFileName);
+	else if(funcionalidade != 2 && funcionalidade != 3)
+		binarioNaTela2(outputFileName);
 
 	return 0;
 }
@@ -289,7 +310,6 @@ int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
 
 	if(!strcmp(nomeCampo, "idServidor")) isUnique = 1;
 
-	
 	// Escrita do cabecalho
 	// status = '0' pois serao feitas escritas no binario 
 	status = '0';
@@ -309,6 +329,7 @@ int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
 	fseek(inputFile, 0, SEEK_SET);
 	fwrite(&status, sizeof(char), 1, inputFile);
 
+	fclose(inputFile);
 	return 0;
 }
 
@@ -328,6 +349,12 @@ int inserirServidor(char *outputFileName){
 		return 2;
 	}
 
+	// Escrita do cabecalho
+	// status = '0' pois serao feitas escritas no binario 
+	status = '0';
+	fseek(outputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, outputFile);
+
 	inputData.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	inputData.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	// Leitura de servidor a ser inserido da entrada padrão
@@ -335,6 +362,12 @@ int inserirServidor(char *outputFileName){
 
 	// Chama função de inserção
 	inserirRegistro(outputFile, inputData);
+
+	// Escrita do cabecalho
+	// status = '1' pois todas as mudanças do arquivo acabaram
+	status = '1';
+	fseek(outputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, outputFile);
 
 	free(inputData.nomeServidor);
 	free(inputData.cargoServidor);
@@ -368,6 +401,12 @@ int atualizarServidor(char *updateFileName){
 		return 2;
 	}
 
+	// Escrita do cabecalho
+	// status = '0' pois serao feitas escritas no binario 
+	status = '0';
+	fseek(updateFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, updateFile);
+
 	if(!strcmp(campoBusca, "idServidor")) isUnique = 1;
 	data.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
@@ -384,6 +423,12 @@ int atualizarServidor(char *updateFileName){
 		}
 		updatePosition = ftell(updateFile);
 	}
+
+	// Escrita do cabecalho
+	// status = '1' pois todas as mudanças do arquivo acabaram
+	status = '1';
+	fseek(updateFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, updateFile);
 
 	free(data.nomeServidor);
 	free(data.cargoServidor);

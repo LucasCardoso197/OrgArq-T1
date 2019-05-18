@@ -159,6 +159,7 @@ long removerLista(FILE *arq, int tam){
 		fwrite(&aux, sizeof(long), 1, arq);
 	}
 	else{
+		// Erro - lista vazia, nenhum elemento com tamanho maior que tam
 		fseek(arq, startPos, SEEK_SET);
 		return -1;
 	}

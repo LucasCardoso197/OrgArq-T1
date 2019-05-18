@@ -39,6 +39,8 @@ void imprimirCamposServidor(Servidor *s, campoCabecalho *cabecalho);
 	Argumentos: - s: servidor que recebe os dados	*/
 void parsearDadosServidor(char *line, Servidor *s);
 
+/*	Funcao que interpreta os dados de um servidor vindo da entrada padrão
+	Argumentos: - s: servidor que recebe os dados	*/
 void scanServidor(Servidor *s);
 
 
@@ -86,12 +88,35 @@ int escreverRegistro(Servidor *s, FILE* target, int extra);
 	Retonar o numero de bytes lidos, 0 em caso de falha */
 int lerRegistro(FILE *inputFile, Servidor *s);
 
-int removerRegistro(FILE *inputFile);
-
+/*	Busca o primeiro registro de acordo com o valor de um campo
+	Argumentos: - inputFile: ponteiro de arquivo do arquivo binario a ser lido
+				- nomeCampo: nome do campo que será testado
+				- argumento: valor do campo que será testado
+	Retona o byte offset do registro encontrado ou -1 em caso de erro */
 long buscarRegistro(FILE *inputFile, char *nomeCampo, char *argumento);
 
+/*	Remove o registro apontado pelo ponteiro de arquivo de entrada
+	Argumentos: - inputFile: ponteiro de arquivo do arquivo binario a ser modificado
+	Retorna 0 para sucesso e >0 para erros. */
+int removerRegistro(FILE *inputFile);
+
+
+/*	Insere um registro no arquivo, aproveitando os bytes de arquivos removidos.
+		Insere no primeiro registro removido de tamanho maior ou igual ou no final do arquivo.
+	Argumentos: - inputFile: ponteiro de arquivo do arquivo binario a ser modificado
+				- s: servidor que será escrito no arquivo
+	Retorna 0 para sucesso e >0 para erros. */
 int inserirRegistro(FILE *inputFile, Servidor s);
 
+/*	Atualiza o valor de um campo de um registro do arquivo. Assume-se que o ponteiro
+		de arquivo aponta para a posição do registro a ser modificado. Caso o tamanho
+		do registro após a atualização seja maior que anteriormente, atualiza-se no
+		mesmo byte offset. Caso contrário ele é removido e inserido atualizado.
+	Argumentos: - updateFile: ponteiro de arquivo do arquivo binario a ser modificado
+				- campoAtualiza: nome do campo a ser atualizado
+				- argAtualiza: valor do campo a ser atualizado
+				- s: dados do registro que será atualizado
+	Retorna 0 para sucesso */
 int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s);
 
 #endif

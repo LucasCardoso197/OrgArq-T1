@@ -1,6 +1,6 @@
 #include "orgarq_servidor.h"
 
-// Funções de entrada e saída
+//------------- FUNÇÕES DE ENTRADA E SAÍDA -------------//
 void imprimirLinhaServidor(Servidor *s){
 	if(s == NULL) {
 		fprintf(stderr, "Attempt to print from null pointer.");
@@ -110,7 +110,8 @@ void scanServidor(Servidor *s){
 	scan_quote_string(s->cargoServidor);
 }
 
-// Funções auxiliares
+
+//------------- FUNÇÕES AUXILIARES -------------//
 void resetarServidor(Servidor *s){
 	int i;
 	s->telefoneServidor[0] = '\0';
@@ -172,8 +173,7 @@ int testarCampo(Servidor *s, char *nomeCampo, char *argumento){
 }
 
 
-
-//Funções de interação com arquivos
+//------------- FUNÇÕES DE INTERAÇÃO COM ARQUIVOS -------------//
 int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 	char removido = '-', trash = '@', aux;
 	long encadeamentoLista = -1;
@@ -334,7 +334,7 @@ int removerRegistro(FILE *inputFile){
 
 	pos = ftell(inputFile);
 	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 2;
-	if(caux == '@' || caux == '*') return 3;
+	if(caux == '*') return 3;
 
 	fread(&tam, sizeof(int), 1, inputFile);
 
