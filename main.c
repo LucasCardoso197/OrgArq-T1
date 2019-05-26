@@ -6,6 +6,7 @@
 #include "./src/orgarq_servidor.h"
 #include "./src/orgarq_cabecalho.h"
 #include "./src/utils.h"
+#include "./src/merge_sort.h"
 
 /*  Funcao que responde a funcionalidade 1
 	Recebe strings com os nomes do arquivo.csv de entrada e .bin de saida
@@ -50,8 +51,13 @@ int inserirServidor(char *outputFileName);
 	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int	atualizarServidor(char *updateFileName);
 
+int ordenarArquivoDeDados(const char* inputFileName, const char* outputFileName);
+int mergeArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName);
+int matchArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName);
+
 int main(){
 	char inputFileName[50];
+	char inputFileName2[50];
 	char outputFileName[50];
 	char nomeCampo[40];
 	char argumentos[MAX_TAM_CAMPO];
@@ -107,6 +113,23 @@ int main(){
 				result = atualizarServidor(outputFileName);
 			}
 			break;
+		case 7:
+			scanf("%s", inputFileName);
+			scanf("%s", outputFileName);
+			result = ordenarArquivoDeDados(inputFileName, outputFileName);
+			break;
+		case 8:
+			scanf("%s", inputFileName);
+			scanf("%s", inputFileName2);
+			scanf("%s", outputFileName);
+			result = mergeArquivoDeDados(inputFileName, inputFileName2, outputFileName);
+			break;
+		case 9:
+			scanf("%s", inputFileName);
+			scanf("%s", inputFileName2);
+			scanf("%s", outputFileName);
+			result = matchArquivoDeDados(inputFileName, inputFileName2, outputFileName);
+			break;
 		default:
 			printf("Funcionalidade desconhecida.\n");
 			break;
@@ -121,6 +144,7 @@ int main(){
 	return 0;
 }
 
+// Caso 1
 int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 	// Declaracoes e atribuicoes para arquivo de saida
 	FILE *outputFile;
@@ -128,7 +152,7 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 
 	Servidor data1, data2;
 	// Tamanho maximo dos campos variaveis definidos com um macro
-	// no arquivo orgarq_servidor.h; Considerado 200.
+	// no arquivo orgarq_servidor.h; Considerado 100.
 	data1.nomeServidor = malloc(MAX_TAM_CAMPO);
 	data1.cargoServidor = malloc(MAX_TAM_CAMPO);
 	data2.nomeServidor = malloc(MAX_TAM_CAMPO);
@@ -197,6 +221,7 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 	return 0;	
 }
 
+// Caso 2
 int mostrarArquivo(char *inputFileName){
 	FILE *inputFile;
 	Servidor data;
@@ -238,6 +263,7 @@ int mostrarArquivo(char *inputFileName){
 	return 0;
 }
 
+// Caso 3
 int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 	FILE *inputFile;
 	Servidor data;
@@ -291,6 +317,7 @@ int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 	return 0;
 }
 
+// Caso 4
 int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
 	FILE *inputFile;
 	char status = '0';
@@ -333,6 +360,7 @@ int removerServidor(char *inputFileName, char *nomeCampo, char *argumento){
 	return 0;
 }
 
+// Caso 5
 int inserirServidor(char *outputFileName){
 	Servidor inputData;
 	FILE *outputFile;
@@ -375,6 +403,7 @@ int inserirServidor(char *outputFileName){
 	return 0;
 }
 
+// Caso 6
 int atualizarServidor(char *updateFileName){
 	// Leitura de argumentos de entrada
 	char campoBusca[40], campoAtualiza[40];
@@ -433,5 +462,295 @@ int atualizarServidor(char *updateFileName){
 	free(data.nomeServidor);
 	free(data.cargoServidor);
 	fclose(updateFile);
+	return 0;
+}
+
+// Caso 7
+int ordenarArquivoDeDados(const char* inputFileName,const char* outputFileName){
+	// Inicialização
+	FILE *inputFile, *outputFile;
+	inputFile = fopen(inputFileName, "rb");
+	outputFile = fopen(outputFileName, "wb");
+	if(outputFile == NULL || inputFile == NULL){
+		if(outputFile != NULL) fclose(outputFile);
+		if(inputFile != NULL) fclose(inputFile);
+		return 1;
+	}
+
+	// Validacao do arquivo de entrada
+	char status = '0';
+	fread(&status, sizeof(char), 1, inputFile);
+	if(status == '0'){
+		fclose(inputFile);
+		fclose(outputFile);
+		return 2;
+	}
+
+	// Leitura dos metadados do cabeçalho do arquivo de entrada
+	int i;
+	campoCabecalho cab[5];
+	lerCabecalho(cab, 5, inputFile);
+	// Carregamento dos dados do arquivo de entrada
+	Servidor *inputFileData;
+	int tam;
+	inputFileData = carregarArquivoDados(inputFile, &tam);
+	fclose(inputFile);
+
+	// Ordenação dos dados carregados do arquivo de entrada
+	MS_sort(inputFileData, tam, sizeof(Servidor), compararServidor);
+
+	// Criação do arquivo ordenado
+	// Inicializa status como 0 pois serão escritos novos registros
+	status = '0';
+	fwrite(&status, sizeof(char), 1, outputFile);
+
+	//Escrita do cabeçalho, com mesmo metadados do arquivo de entrada
+	escreverCabecalho(outputFile, cab);
+
+	// Escrita dos dados
+	int fill, posicaoPagDisco = 0;
+	fseek(outputFile, TAM_PAGDISCO, SEEK_SET);
+	for(i=0; i<tam-1; i++){
+		fill = posicaoPagDisco+tamanhoRegServidor(&inputFileData[i])+tamanhoRegServidor(&inputFileData[i+1]) + 10;
+		if(fill > TAM_PAGDISCO){
+			fill = TAM_PAGDISCO -(fill-tamanhoRegServidor(&inputFileData[i+1])-5);
+			posicaoPagDisco = -1*(tamanhoRegServidor(&inputFileData[i])+5);
+		}
+		else
+			fill = 0;
+		escreverRegistro(&inputFileData[i], outputFile, fill);
+		posicaoPagDisco += tamanhoRegServidor(&inputFileData[i])+5;
+	}
+	escreverRegistro(&inputFileData[tam-1], outputFile, 0);
+
+	// Atualização de status no final da execução
+	status = '1';
+	fseek(outputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, outputFile);
+
+	// Finalização
+	liberarVetorServidor(inputFileData, tam);
+	fclose(outputFile);
+	return 0;
+}
+
+// Caso 8
+int mergeArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName){
+	FILE *inputFile1, *inputFile2, *outputFile;
+	// Abertura dos arquivos
+	char status = '0';
+	inputFile1 = fopen(inputFileName1, "rb");
+	inputFile2 = fopen(inputFileName2, "rb");
+	outputFile = fopen(outputFileName, "wb+");
+	if(inputFile1 == NULL || inputFile2 == NULL || outputFile == NULL){
+		if(inputFile1 != NULL) fclose(inputFile1);
+		if(inputFile2 != NULL) fclose(inputFile2);
+		if(outputFile != NULL) fclose(outputFile);
+		return 1;
+	}
+
+	// Validação dos arquivos de entrada
+	fread(&status, sizeof(char), 1, inputFile1);
+	if(status == '0'){
+		fclose(inputFile1);
+		fclose(inputFile2);
+		fclose(outputFile);
+		return 2;
+	}
+	fread(&status, sizeof(char), 1, inputFile2);
+	if(status == '0'){
+		fclose(inputFile1);
+		fclose(inputFile2);
+		fclose(outputFile);
+		return 2;
+	}
+
+	// Leitura dos metadados do cabeçalho do arquivo de entrada 1!
+	campoCabecalho cab[5];
+	lerCabecalho(cab, 5, inputFile1);
+	// Preparando arquivo de saída
+	status = '0';
+	fwrite(&status, sizeof(char), 1, outputFile);
+	// Escrevemos o cabeçalho assumindo que tenho os mesmo metadados do arquivo 1!
+	escreverCabecalho(outputFile, cab);
+
+	// Merge
+	Servidor registro1, registro2;
+	registro1.nomeServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	registro2.nomeServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	registro1.cargoServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	registro2.cargoServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	char temRegistro1 = 1, temRegistro2 = 1;
+	int aux;
+
+	fseek(inputFile1, TAM_PAGDISCO, SEEK_SET);
+	fseek(inputFile2, TAM_PAGDISCO, SEEK_SET);
+	fseek(outputFile, TAM_PAGDISCO, SEEK_SET);
+	// Leitura do primeiro registro valido de cada arquivo
+	// Utiliza auxiliar para resolver caso onde um arquivo não tem registros
+	while((aux = lerRegistro(inputFile1, &registro1)) == -1);
+	if(aux == 0) temRegistro1 = 0;
+	while((aux = lerRegistro(inputFile2, &registro2)) == -1);
+	if(aux == 0) temRegistro2 = 0;
+
+	// Laço percorrendo os arquivos
+	while(temRegistro1 && temRegistro2){
+		if(compararServidor(&registro1, &registro2) >= 0){
+			// Escreve registro 1 na saída
+			escreverRegistroAutoFill(&registro1, outputFile);
+
+			// Se igual também ler registro arquivo 2
+			if(compararServidor(&registro1, &registro2) == 0){
+				while((aux = lerRegistro(inputFile2, &registro2)) == -1);
+				if(aux == 0) temRegistro2 = 0; // Verificação final de arquivo 2
+			}
+
+			// Ler registro arquivo 1
+			while((aux = lerRegistro(inputFile1, &registro1)) == -1);
+			if(aux == 0) temRegistro1 = 0; // Verificação final de arquivo 1
+		}
+		else {
+			// Escreve registro 2 na saída
+			escreverRegistroAutoFill(&registro2, outputFile);
+
+			// Ler registro 2
+			while((aux = lerRegistro(inputFile2, &registro2)) == -1);
+			if(aux == 0) temRegistro2 = 0; // Verificação final de arquivo 2
+		}
+	}
+	// Acabou um arquivo, vamos percorrer o outro até acabar também
+	// Posicionamos o arquvo que tem registros no inputFile 1
+	// Também aproveitamos os testes para escrever o arquivo que já foi lido
+	if(temRegistro2){ // swap(inputFile1, inputFile2)
+		FILE *aux = inputFile1;
+		inputFile1 = inputFile2;
+		inputFile2 = aux;
+		temRegistro1 = 1;
+		escreverRegistroAutoFill(&registro2, outputFile);
+		printf("File 2 has more xD.\n");
+	}
+	else if(temRegistro1)
+		escreverRegistroAutoFill(&registro1, outputFile);
+
+	// Percorrendo o arquivo que ainda tem dados
+	while(temRegistro1){
+		while((aux = lerRegistro(inputFile1, &registro1)) == -1);
+		if(aux == 0) temRegistro1 = 0;
+		else escreverRegistroAutoFill(&registro1, outputFile);
+	}
+
+	// Atualizando status do arquvio de saída
+	status = '1';
+	fseek(outputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, outputFile);
+
+	// Finalização
+	free(registro1.nomeServidor);
+	free(registro2.nomeServidor);
+	free(registro1.cargoServidor);
+	free(registro2.cargoServidor);
+	fclose(inputFile1);
+	fclose(inputFile2);
+	fclose(outputFile);
+	return 0;
+}
+
+// Caso 9
+int matchArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName){
+	FILE *inputFile1, *inputFile2, *outputFile;
+	// Abertura dos arquivos
+	char status = '0';
+	inputFile1 = fopen(inputFileName1, "rb");
+	inputFile2 = fopen(inputFileName2, "rb");
+	outputFile = fopen(outputFileName, "wb+");
+	if(inputFile1 == NULL || inputFile2 == NULL || outputFile == NULL){
+		if(inputFile1 != NULL) fclose(inputFile1);
+		if(inputFile2 != NULL) fclose(inputFile2);
+		if(outputFile != NULL) fclose(outputFile);
+		return 1;
+	}
+
+	// Validação dos arquivos de entrada
+	fread(&status, sizeof(char), 1, inputFile1);
+	if(status == '0'){
+		fclose(inputFile1);
+		fclose(inputFile2);
+		fclose(outputFile);
+		return 2;
+	}
+	fread(&status, sizeof(char), 1, inputFile2);
+	if(status == '0'){
+		fclose(inputFile1);
+		fclose(inputFile2);
+		fclose(outputFile);
+		return 2;
+	}
+
+	// Leitura dos metadados do cabeçalho do arquivo de entrada 1!
+	campoCabecalho cab[5];
+	lerCabecalho(cab, 5, inputFile1);
+	// Preparando arquivo de saída
+	status = '0';
+	fwrite(&status, sizeof(char), 1, outputFile);
+	// Escrevemos o cabeçalho assumindo que tenho os mesmo metadados do arquivo 1!
+	escreverCabecalho(outputFile, cab);
+
+	// Match
+	Servidor registro1, registro2;
+	registro1.nomeServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	registro2.nomeServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	registro1.cargoServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	registro2.cargoServidor = malloc(MAX_TAM_CAMPO*sizeof(char));
+	char temRegistro = 1;
+	int aux;
+
+	fseek(inputFile1, TAM_PAGDISCO, SEEK_SET);
+	fseek(inputFile2, TAM_PAGDISCO, SEEK_SET);
+	fseek(outputFile, TAM_PAGDISCO, SEEK_SET);
+	// Leitura do primeiro registro valido de cada arquivo
+	// Utiliza auxiliar para resolver caso onde um arquivo não tem registros
+	while((aux = lerRegistro(inputFile1, &registro1)) == -1);
+	if(aux == 0) temRegistro = 0;
+	while((aux = lerRegistro(inputFile2, &registro2)) == -1);
+	if(aux == 0) temRegistro = 0;
+
+	// Laço percorrendo os registros
+	while(temRegistro){
+		if(compararServidor(&registro1, &registro2) > 0){
+			// Ler o proximo registro do arquivo 1
+			while((aux = lerRegistro(inputFile1, &registro1)) == -1);
+			if(aux == 0) temRegistro = 0;
+		}
+		else if(compararServidor(&registro1, &registro2) < 0){
+			// Ler o proximo registro do arquivo 2
+			while((aux = lerRegistro(inputFile2, &registro2)) == -1);
+			if(aux == 0) temRegistro = 0;
+		}
+		else {
+			// Escreve registro igual na saída
+			escreverRegistroAutoFill(&registro1, outputFile);
+
+			// Ler o proximo registro do arquivo 1
+			while((aux = lerRegistro(inputFile1, &registro1)) == -1);
+			if(aux == 0) temRegistro = 0;
+			// Ler o proximo registro do arquivo 2
+			while((aux = lerRegistro(inputFile2, &registro2)) == -1);
+			if(aux == 0) temRegistro = 0;
+		}
+	}
+
+	// Atualizando status do arquvio de saída
+	status = '1';
+	fseek(outputFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, outputFile);
+
+	// Finalização
+	free(registro1.nomeServidor);
+	free(registro2.nomeServidor);
+	free(registro1.cargoServidor);
+	free(registro2.cargoServidor);
+	fclose(inputFile1);
+	fclose(inputFile2);
+	fclose(outputFile);
 	return 0;
 }

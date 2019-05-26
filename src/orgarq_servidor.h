@@ -10,7 +10,7 @@
 
 //------------- DECLARAÇÕES -------------//
 // Tamanho maximo dos campos de tamanho variavel nomeServidor e cargoServidor
-#define MAX_TAM_CAMPO 200
+#define MAX_TAM_CAMPO 100
 
 typedef struct {
 	int idServidor;
@@ -118,5 +118,18 @@ int inserirRegistro(FILE *inputFile, Servidor s);
 				- s: dados do registro que será atualizado
 	Retorna 0 para sucesso */
 int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s);
+
+//--------- FUNÇÕES USADAS NO TRABALHO 3 ---------//
+/*
+*/
+Servidor *carregarArquivoDados(FILE *inputFile, int *tam);
+
+void liberarVetorServidor(Servidor *vetor, int tam);
+
+int compararServidor(const void *s1, const void *s2);
+
+void preencherPaginaDeDisco(FILE *fp);
+
+int escreverRegistroAutoFill(Servidor *s, FILE* targetFile);
 
 #endif

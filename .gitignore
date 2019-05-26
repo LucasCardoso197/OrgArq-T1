@@ -36,7 +36,7 @@
 *.zip
 test
 test/*
+_aux
+_aux/*
 main
 out*.txt
-arquivos-binarios
-arquivos-binarios/*
