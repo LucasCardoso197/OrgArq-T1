@@ -5,6 +5,7 @@
 #include <string.h>
 #include "./src/orgarq_servidor.h"
 #include "./src/orgarq_cabecalho.h"
+#include "./src/orgarq_indice_nome.h"
 #include "./src/utils.h"
 #include "./src/merge_sort.h"
 
@@ -51,9 +52,26 @@ int inserirServidor(char *outputFileName);
 	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int	atualizarServidor(char *updateFileName);
 
+/*	Funcao que responde a funcionalidade 7
+	Recebe a string com nome do arquivo.bin que sera modificado
+	e também o nome do arquivo que deverá ser gerado ordenado
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int ordenarArquivoDeDados(const char* inputFileName, const char* outputFileName);
+
+/*	Funcao que responde a funcionalidade 8
+	Recebe a string com nome dos arquivos.bin que serão combinados
+	e também o nome do arquivo que será gerado com dados presentes em algum deles
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mergeArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName);
+
+
+/*	Funcao que responde a funcionalidade 9
+	Recebe a string com nome dos arquivos.bin que serão comparados
+	e também o nome do arquivo que será gerado com dados presentes em ambos
+	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int matchArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName);
+
+int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, const char *key);
 
 int main(){
 	char inputFileName[50];
@@ -130,16 +148,27 @@ int main(){
 			scanf("%s", outputFileName);
 			result = matchArquivoDeDados(inputFileName, inputFileName2, outputFileName);
 			break;
+		case 10:
+			scanf("%s %s", inputFileName, outputFileName);
+			result = criarArquivoIndices_nome(inputFileName, outputFileName);
+			break;
+		case 11:
+			scanf("%s %s", inputFileName, outputFileName);
+			scan_quote_string(argumentos);
+			result = buscarRegistroInd(inputFileName, outputFileName, argumentos);
+			break;
 		default:
 			printf("Funcionalidade desconhecida.\n");
 			break;
 	}
 
 	// Saída para erro ou sucesso
-	if(result != 0)
+	if(result == 3)
+		printf("Registro inexistente.\n");
+	else if(result != 0)
 		printf("Falha no processamento do arquivo.\n");
-	else if(funcionalidade != 2 && funcionalidade != 3)
-		binarioNaTela2(outputFileName);
+	//else if(funcionalidade != 2 && funcionalidade != 3)
+	//	binarioNaTela2(outputFileName);
 
 	return 0;
 }
@@ -754,3 +783,53 @@ int matchArquivoDeDados(const char *inputFileName1, const char *inputFileName2, 
 	fclose(outputFile);
 	return 0;
 }
+
+// Caso 11
+int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, const char *key){
+	indiceNome *indices;
+	int tam;
+	// Carregamento dos indices para memória primária
+	indices = carregarArquivoIndices_nome(inputIndiceName, &tam);
+	if(indices == NULL){
+		return -1;
+	}
+
+	// Busca binária nos indices em memória primária
+	int pos = buscarIndice_nome(key, indices, tam);
+	if(pos < 0){
+		printf("Registro inexistente.\n");
+		return 3;
+	}
+
+	// Inicialização do arquivo de dados
+	FILE *dataFile = fopen(inputFileName, "rb");
+	if(dataFile == NULL)
+		return 1;
+	char status = '0';
+	fread(&status, sizeof(char), 1, dataFile);
+	if(status == '0')
+		return 2;
+
+	// Leitura metadados cabeçalho
+	campoCabecalho cab[5];
+	lerCabecalho(cab, 5, dataFile);
+
+	// Leitura de todos os registros encontrados a partir do arquivo de dados
+	Servidor serv;
+	serv.nomeServidor = (char *) malloc(MAX_TAM_CAMPO*sizeof(char));
+	serv.cargoServidor = (char *) malloc(MAX_TAM_CAMPO*sizeof(char));
+	while(strcmp(key, indices[pos].nomeServidor) == 0){
+		fseek(dataFile, indices[pos].byteoffset, SEEK_SET);
+		lerRegistro(dataFile, &serv);
+		imprimirCamposServidor(&serv, cab);
+		pos++;
+	}
+	
+	// Finalizações
+	fclose(dataFile);
+	free(serv.nomeServidor);
+	free(serv.cargoServidor);
+	return 0;
+}
+
+// Caso 12

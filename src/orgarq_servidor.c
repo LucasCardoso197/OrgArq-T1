@@ -1,5 +1,239 @@
 #include "orgarq_servidor.h"
 
+/*	ATENÇÃO:
+	Para facilitar a correção as funções que são utilizadas pelo trabalho 3
+		serão colocadas mais acima das demais. */
+
+/*	Função auxiliar interna que posiciona o ponteiro de arquivo no começo do pŕoximo
+		registro, além de retornar a quantidade de bytes lidos. */
+long buscaProxRegistro(FILE *inputFile);
+
+////////////////////////////////////////////////////
+//--------- FUNÇÕES USADAS NO TRABALHO 3 ---------//
+// Auxiliares
+void copiarServidor(Servidor *target, Servidor *s){
+	int i;
+	target->idServidor = s->idServidor;
+	target->salarioServidor = s->salarioServidor;
+	for(i=0; i<14; i++)
+		target->telefoneServidor[i] = s->telefoneServidor[i];
+	strcpy(target->nomeServidor, s->nomeServidor);
+	strcpy(target->cargoServidor, s->cargoServidor);
+}
+
+int tamanhoRegServidor(Servidor *s){
+	int tamanhoNome = strlen(s->nomeServidor) + 2;
+	int tamanhoCargo = strlen(s->cargoServidor) + 2;
+	int tamanhoRegistro = (s->nomeServidor[0] == '\0') ? 34 : 34 + tamanhoNome + 4;
+	tamanhoRegistro = (s->cargoServidor[0] == '\0') ? tamanhoRegistro : tamanhoRegistro + tamanhoCargo + 4;
+	return tamanhoRegistro;
+}
+
+int compararServidor(const void *s1, const void *s2){
+	Servidor *s1p, *s2p;
+	s1p = (Servidor *)s1;
+	s2p = (Servidor *)s2;
+	return (s2p->idServidor-s1p->idServidor);
+}
+
+void liberarVetorServidor(Servidor *vetor, int tam){
+	int i;
+	Servidor *sp = vetor;
+	for(i=0; i<tam; i++, sp++){
+		if(sp->nomeServidor != NULL)
+			free(sp->nomeServidor);
+		if(sp->cargoServidor != NULL)
+			free(sp->cargoServidor);
+	}
+	free(vetor);
+}
+
+void resetarServidor(Servidor *s){
+	int i;
+	s->telefoneServidor[0] = '\0';
+	// Preenchendo lixo como '@'
+	for(i = 1; i < 14; i++)
+		s->telefoneServidor[i] = '@';
+	s->nomeServidor[0] = '\0';
+	s->cargoServidor[0] = '\0';
+	s->idServidor = 0;
+	s->salarioServidor = -1.0f;
+}
+
+
+// Leitura E escrita em arquivo
+int escreverRegistroAutoFill(Servidor *s, FILE* targetFile){
+	char removido = '-', aux;
+	long encadeamentoLista = -1;
+
+	// Tamanho da string + '\0' + tag
+	int tamanhoNome = strlen(s->nomeServidor) + 2;
+	int tamanhoCargo = strlen(s->cargoServidor) + 2;
+	int tamanhoRegistro = tamanhoRegServidor(s);
+
+	// Se o registro nao couber na pagina preenchemos ela
+	long posicaoAtual = ftell(targetFile)%TAM_PAGDISCO;
+	if(posicaoAtual+tamanhoRegistro+5 > TAM_PAGDISCO){
+		preencherPaginaDeDisco(targetFile);
+	}
+
+	// Escrita do registro campo a campo
+	fwrite(&removido, sizeof(char), 1, targetFile);
+	fwrite(&tamanhoRegistro, sizeof(int), 1, targetFile);
+	fwrite(&encadeamentoLista, sizeof(long), 1, targetFile);
+	fwrite(&(s->idServidor), sizeof(int), 1, targetFile);
+	fwrite(&s->salarioServidor, sizeof(double), 1, targetFile);
+
+	// Espera a formatacao correta do telefone no registro de entrada
+	fwrite(s->telefoneServidor, sizeof(char), 14, targetFile); 
+
+	// Escrita condicional de campos de nome
+	if(s->nomeServidor[0] != '\0') {
+		fwrite(&tamanhoNome, sizeof(int), 1, targetFile);
+		aux = 'n';
+		fwrite(&aux, sizeof(char), 1, targetFile);
+		fwrite(s->nomeServidor, sizeof(char), tamanhoNome-1, targetFile);
+	}
+	// Escrita condicional de campos de cargo
+	if(s->cargoServidor[0] != '\0') {
+		fwrite(&tamanhoCargo, sizeof(int), 1, targetFile);
+		aux = 'c';
+		fwrite(&aux, sizeof(char), 1, targetFile);
+		fwrite(s->cargoServidor, sizeof(char), tamanhoCargo-1, targetFile);
+	}
+
+	// Tamanho do registro + byte de remocao + inteiro indicador de tamanho de registro
+	return tamanhoRegistro + 5;
+}
+
+/*	Função auxiliar interna que preenche a última página de disco do arquivo
+	com o caractere '@'. Atualiza o tamanho do último registro da página com
+	os caracteres de lixo escritos. */
+void preencherPaginaDeDisco(FILE *fp){
+	// Encontrando o ultimo registro do arquivo para preenchimento
+	// Busca apenas a partir do começo da ultima pagina de disco
+	int lastSize, i;
+	long aux = ftell(fp)/TAM_PAGDISCO;
+	fseek(fp, aux*TAM_PAGDISCO, SEEK_SET);
+	while((aux = buscaProxRegistro(fp)) > 0)
+		lastSize = aux;
+	
+	// Preenchimento
+	aux = ftell(fp)%TAM_PAGDISCO; // Quantos bytes faltam para preencher a pagina
+	fseek(fp, -(lastSize-1), SEEK_CUR);
+	lastSize += TAM_PAGDISCO-aux-5;
+	fwrite(&lastSize, sizeof(int), 1, fp);
+	fseek(fp, 0, SEEK_END);
+	char trash = '@';
+	for(i = 0; i < TAM_PAGDISCO-aux; i++)
+		fwrite(&trash, sizeof(char), 1, fp);
+	// SAI DA FUNÇÃO COM PONTEIRO DE ARQUIVO NO FINAL DO ARQUIVO
+}
+
+
+// Apenas Leitura de arquivo
+Servidor *carregarArquivoDados(FILE *inputFile, int *tam){
+	int readReturnValue = 1;
+	*tam = 0;
+	Servidor *sp, *sArray = NULL, registroLido;
+
+	// Alocacao inicial
+	registroLido.nomeServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
+	registroLido.cargoServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
+
+	fseek(inputFile, TAM_PAGDISCO, SEEK_SET);
+	// Loop de leitura
+	while(readReturnValue != 0){
+		readReturnValue = lerRegistro(inputFile, &registroLido);
+		if(readReturnValue > 0){
+			if((*tam)%500 == 0){
+				sArray = (Servidor *) realloc(sArray, (*tam+500)*sizeof(Servidor));
+				sp = &sArray[*tam];
+			}
+			sp->nomeServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
+			sp->cargoServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
+			copiarServidor(sp, &registroLido);
+			sp++;
+			(*tam)++;
+		}
+		else if(readReturnValue == -2){
+			fprintf(stderr, "Erro no carregamento do arquivo para memória primária.\n");
+		}
+	}
+
+	free(registroLido.nomeServidor);
+	free(registroLido.cargoServidor);
+	return sArray;
+}
+
+int lerRegistro(FILE *inputFile, Servidor *s){
+	char *buffer, *cptr, caux;
+	int aux, tamanhoRegistro;
+	resetarServidor(s);
+
+	// Leitura caso nao EOF
+	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 0;
+
+	// Leitura de fato do registro
+	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
+	if(tamanhoRegistro < 0){
+		fprintf(stderr, "Critical error, read unexpected value from file.\n");
+		return -2;
+	}
+
+	// Registro que esta tentando ler foi apagado
+	if(caux == '*') {
+		fseek(inputFile, tamanhoRegistro, SEEK_CUR);
+		return -1;
+	}
+
+	buffer = (char*) malloc(sizeof(char)*tamanhoRegistro);
+	fread(buffer, sizeof(char), tamanhoRegistro, inputFile);
+	// Le o registro inteiro em um buffer de memoria, para interpretacao dos dados.
+	memcpy(&s->idServidor, buffer+8, 4);
+	memcpy(&s->salarioServidor, buffer+12, 8);
+	memcpy(s->telefoneServidor, buffer+20, 14);
+	if(tamanhoRegistro == 34) { // Nome nulo, cargo nulo e sem bytes extra
+		free(buffer);
+		return tamanhoRegistro+5;
+	}
+	memcpy(&caux, buffer+34, 1);
+	if(caux == '@'){ // Nome nulo, cargo nulo com pelo menos 1 byte extra
+		free(buffer);
+		return tamanhoRegistro+5;
+	}
+	memcpy(&aux, buffer+34, 4);
+	memcpy(&caux, buffer+38, 1);
+	if(caux == 'n') {
+		memcpy(s->nomeServidor, buffer+39, aux-1);
+
+		if((tamanhoRegistro == 38+aux) || (buffer[38+aux] == '@')) {
+			// Nome nao nulo, cargo nulo com ou sem bytes extra
+			free(buffer);
+			return tamanhoRegistro+5;
+		}
+		// Nome nao nulo, cargo nao nulo com ou sem bytes extra
+		cptr = buffer+38+aux;
+		memcpy(&aux, cptr, 4);
+		memcpy(&caux, cptr+4, 1);
+	}
+	// Nome nulo, cargo nao nulo com ou seu bytes extra
+	else if(caux == 'c'){
+		memcpy(s->cargoServidor, buffer+39, aux-1);
+		free(buffer);
+		return tamanhoRegistro+5;
+	}
+	// Ambos nomes e cargo nao nulos
+	memcpy(s->cargoServidor, cptr+5, aux-1);
+	cptr = NULL;
+	free(buffer);
+	return tamanhoRegistro+5;
+}
+
+///////////////// FIM TRABALHO 3 /////////////////////
+//////////////////////////////////////////////////////
+
+
 //------------- FUNÇÕES DE ENTRADA E SAÍDA -------------//
 void imprimirLinhaServidor(Servidor *s){
 	if(s == NULL) {
@@ -112,35 +346,6 @@ void scanServidor(Servidor *s){
 
 
 //------------- FUNÇÕES AUXILIARES -------------//
-void resetarServidor(Servidor *s){
-	int i;
-	s->telefoneServidor[0] = '\0';
-	// Preenchendo lixo como '@'
-	for(i = 1; i < 14; i++)
-		s->telefoneServidor[i] = '@';
-	s->nomeServidor[0] = '\0';
-	s->cargoServidor[0] = '\0';
-	s->idServidor = 0;
-	s->salarioServidor = -1.0f;
-}
-
-void copiarServidor(Servidor *target, Servidor *s){
-	int i;
-	target->idServidor = s->idServidor;
-	target->salarioServidor = s->salarioServidor;
-	for(i=0; i<14; i++)
-		target->telefoneServidor[i] = s->telefoneServidor[i];
-	strcpy(target->nomeServidor, s->nomeServidor);
-	strcpy(target->cargoServidor, s->cargoServidor);
-}
-
-int tamanhoRegServidor(Servidor *s){
-	int tamanhoNome = strlen(s->nomeServidor) + 2;
-	int tamanhoCargo = strlen(s->cargoServidor) + 2;
-	int tamanhoRegistro = (s->nomeServidor[0] == '\0') ? 34 : 34 + tamanhoNome + 4;
-	tamanhoRegistro = (s->cargoServidor[0] == '\0') ? tamanhoRegistro : tamanhoRegistro + tamanhoCargo + 4;
-	return tamanhoRegistro;
-}
 
 int testarCampo(Servidor *s, char *nomeCampo, char *argumento){
 	// Primeiro testa-se qual campo esta sendo comparado
@@ -222,50 +427,6 @@ int escreverRegistro(Servidor *s, FILE* targetFile, int extra){
 	return tamanhoRegistro + 5;
 }
 
-int escreverRegistroAutoFill(Servidor *s, FILE* targetFile){
-	char removido = '-', aux;
-	long encadeamentoLista = -1;
-
-	// Tamanho da string + '\0' + tag
-	int tamanhoNome = strlen(s->nomeServidor) + 2;
-	int tamanhoCargo = strlen(s->cargoServidor) + 2;
-	int tamanhoRegistro = tamanhoRegServidor(s);
-
-	// Se o registro nao couber na pagina preenchemos ela
-	long posicaoAtual = ftell(targetFile)%TAM_PAGDISCO;
-	if(posicaoAtual+tamanhoRegistro+5 > TAM_PAGDISCO){
-		preencherPaginaDeDisco(targetFile);
-	}
-
-	// Escrita do registro campo a campo
-	fwrite(&removido, sizeof(char), 1, targetFile);
-	fwrite(&tamanhoRegistro, sizeof(int), 1, targetFile);
-	fwrite(&encadeamentoLista, sizeof(long), 1, targetFile);
-	fwrite(&(s->idServidor), sizeof(int), 1, targetFile);
-	fwrite(&s->salarioServidor, sizeof(double), 1, targetFile);
-
-	// Espera a formatacao correta do telefone no registro de entrada
-	fwrite(s->telefoneServidor, sizeof(char), 14, targetFile); 
-
-	// Escrita condicional de campos de nome
-	if(s->nomeServidor[0] != '\0') {
-		fwrite(&tamanhoNome, sizeof(int), 1, targetFile);
-		aux = 'n';
-		fwrite(&aux, sizeof(char), 1, targetFile);
-		fwrite(s->nomeServidor, sizeof(char), tamanhoNome-1, targetFile);
-	}
-	// Escrita condicional de campos de cargo
-	if(s->cargoServidor[0] != '\0') {
-		fwrite(&tamanhoCargo, sizeof(int), 1, targetFile);
-		aux = 'c';
-		fwrite(&aux, sizeof(char), 1, targetFile);
-		fwrite(s->cargoServidor, sizeof(char), tamanhoCargo-1, targetFile);
-	}
-
-	// Tamanho do registro + byte de remocao + inteiro indicador de tamanho de registro
-	return tamanhoRegistro + 5;
-}
-
 long buscarRegistro(FILE *inputFile, char *nomeCampo, char *argumento){
 	Servidor data;
 	int bytesLidos;
@@ -287,70 +448,6 @@ long buscarRegistro(FILE *inputFile, char *nomeCampo, char *argumento){
 	free(data.cargoServidor);
 
 	return result;
-}
-
-int lerRegistro(FILE *inputFile, Servidor *s){
-	char *buffer, *cptr, caux;
-	int aux, tamanhoRegistro;
-	resetarServidor(s);
-
-	// Leitura caso nao EOF
-	if(fread(&caux, sizeof(char), 1, inputFile) == 0) return 0;
-
-	// Leitura de fato do registro
-	fread(&tamanhoRegistro, sizeof(int), 1, inputFile);
-	if(tamanhoRegistro < 0){
-		fprintf(stderr, "Critical error, read unexpected value from file.\n");
-		return -2;
-	}
-
-	// Registro que esta tentando ler foi apagado
-	if(caux == '*') {
-		fseek(inputFile, tamanhoRegistro, SEEK_CUR);
-		return -1;
-	}
-
-	buffer = (char*) malloc(sizeof(char)*tamanhoRegistro);
-	fread(buffer, sizeof(char), tamanhoRegistro, inputFile);
-	// Le o registro inteiro em um buffer de memoria, para interpretacao dos dados.
-	memcpy(&s->idServidor, buffer+8, 4);
-	memcpy(&s->salarioServidor, buffer+12, 8);
-	memcpy(s->telefoneServidor, buffer+20, 14);
-	if(tamanhoRegistro == 34) { // Nome nulo, cargo nulo e sem bytes extra
-		free(buffer);
-		return tamanhoRegistro+5;
-	}
-	memcpy(&caux, buffer+34, 1);
-	if(caux == '@'){ // Nome nulo, cargo nulo com pelo menos 1 byte extra
-		free(buffer);
-		return tamanhoRegistro+5;
-	}
-	memcpy(&aux, buffer+34, 4);
-	memcpy(&caux, buffer+38, 1);
-	if(caux == 'n') {
-		memcpy(s->nomeServidor, buffer+39, aux-1);
-
-		if((tamanhoRegistro == 38+aux) || (buffer[38+aux] == '@')) {
-			// Nome nao nulo, cargo nulo com ou sem bytes extra
-			free(buffer);
-			return tamanhoRegistro+5;
-		}
-		// Nome nao nulo, cargo nao nulo com ou sem bytes extra
-		cptr = buffer+38+aux;
-		memcpy(&aux, cptr, 4);
-		memcpy(&caux, cptr+4, 1);
-	}
-	// Nome nulo, cargo nao nulo com ou seu bytes extra
-	else if(caux == 'c'){
-		memcpy(s->cargoServidor, buffer+39, aux-1);
-		free(buffer);
-		return tamanhoRegistro+5;
-	}
-	// Ambos nomes e cargo nao nulos
-	memcpy(s->cargoServidor, cptr+5, aux-1);
-	cptr = NULL;
-	free(buffer);
-	return tamanhoRegistro+5;
 }
 
 long buscaProxRegistro(FILE *inputFile){
@@ -424,28 +521,6 @@ int inserirRegistro(FILE *outputFile, Servidor s){
 	return 0;
 }
 
-
-void preencherPaginaDeDisco(FILE *fp){
-	// Encontrando o ultimo registro do arquivo para preenchimento
-	// Busca apenas a partir do começo da ultima pagina de disco
-	int lastSize, i;
-	long aux = ftell(fp)/TAM_PAGDISCO;
-	fseek(fp, aux*TAM_PAGDISCO, SEEK_SET);
-	while((aux = buscaProxRegistro(fp)) > 0)
-		lastSize = aux;
-	
-	// Preenchimento
-	aux = ftell(fp)%TAM_PAGDISCO; // Quantos bytes faltam para preencher a pagina
-	fseek(fp, -(lastSize-1), SEEK_CUR);
-	lastSize += TAM_PAGDISCO-aux-5;
-	fwrite(&lastSize, sizeof(int), 1, fp);
-	fseek(fp, 0, SEEK_END);
-	char trash = '@';
-	for(i = 0; i < TAM_PAGDISCO-aux; i++)
-		fwrite(&trash, sizeof(char), 1, fp);
-	// SAI DA FUNÇÃO COM PONTEIRO DE ARQUIVO NO FINAL DO ARQUIVO
-}
-
 int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s){
 	Servidor novo;
 	novo.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
@@ -491,57 +566,4 @@ int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, 
 	free(novo.nomeServidor);
 	free(novo.cargoServidor);
 	return 0;
-}
-
-Servidor *carregarArquivoDados(FILE *inputFile, int *tam){
-	int readReturnValue = 1;
-	*tam = 0;
-	Servidor *sp, *sArray = NULL, registroLido;
-
-	// Alocacao inicial
-	registroLido.nomeServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
-	registroLido.cargoServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
-
-	fseek(inputFile, TAM_PAGDISCO, SEEK_SET);
-	// Loop de leitura
-	while(readReturnValue != 0){
-		readReturnValue = lerRegistro(inputFile, &registroLido);
-		if(readReturnValue > 0){
-			if((*tam)%500 == 0){
-				sArray = (Servidor *) realloc(sArray, (*tam+500)*sizeof(Servidor));
-				sp = &sArray[*tam];
-			}
-			sp->nomeServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
-			sp->cargoServidor = (char *)malloc(MAX_TAM_CAMPO*sizeof(char));
-			copiarServidor(sp, &registroLido);
-			sp++;
-			(*tam)++;
-		}
-		else if(readReturnValue == -2){
-			fprintf(stderr, "Erro no carregamento do arquivo para memória primária.\n");
-		}
-	}
-
-	free(registroLido.nomeServidor);
-	free(registroLido.cargoServidor);
-	return sArray;
-}
-
-void liberarVetorServidor(Servidor *vetor, int tam){
-	int i;
-	Servidor *sp = vetor;
-	for(i=0; i<tam; i++, sp++){
-		if(sp->nomeServidor != NULL)
-			free(sp->nomeServidor);
-		if(sp->cargoServidor != NULL)
-			free(sp->cargoServidor);
-	}
-	free(vetor);
-}
-
-int compararServidor(const void *s1, const void *s2){
-	Servidor *s1p, *s2p;
-	s1p = (Servidor *)s1;
-	s2p = (Servidor *)s2;
-	return (s2p->idServidor-s1p->idServidor);
 }
