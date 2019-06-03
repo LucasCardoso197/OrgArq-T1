@@ -149,7 +149,7 @@ int removerRegistro(FILE *inputFile);
 *		Insere no primeiro registro removido de tamanho maior ou igual ou no final do arquivo.
 *	Argumentos: - inputFile: ponteiro de arquivo do arquivo binario a ser modificado
 *				- s: servidor que será escrito no arquivo
-*	Retorna 0 para sucesso e >0 para erros. */
+*	Retorna o byteoffset da posição onde foi inserido o novo registro. */
 int inserirRegistro(FILE *inputFile, Servidor s);
 
 /*	Atualiza o valor de um campo de um registro do arquivo. Assume-se que o ponteiro

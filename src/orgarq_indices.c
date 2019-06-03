@@ -57,26 +57,24 @@ void *carregarIndices(FILE *inputFile, unsigned long memsize, int n, int (*lerIn
 
 	return vetor;
 }
-int buscarIndice(const void *key, void *iArray, unsigned long memsize, int n, int (*testarChave)(const void *, const void *)){
+int buscarChave(const void *key, void *iArray, unsigned long memsize, int n, int (*testarChave)(const void *, const void *)){
 	int begin, end, mid;
 	begin = 0;
-	end = n;
+	end = n-1;
 	void *indP;
 
 	while(begin <= end){
 		mid = (begin+end)/2;
 		indP = iArray + memsize*mid;
-		if(testarChave(key, indP) < 0){
+		if(testarChave(key, indP) < 0)
 			end = mid-1;
-		}
-		else if(testarChave(key, indP) > 0){
+		else if(testarChave(key, indP) > 0)
 			begin = mid+1;
-		}
 		else
 			break;
 	}
 	if(testarChave(key, indP) != 0)
-		return -mid;
+		return -(mid+1);
 
 	while(mid >= 0 && testarChave(key, indP) == 0){
 		mid--;
@@ -85,9 +83,38 @@ int buscarIndice(const void *key, void *iArray, unsigned long memsize, int n, in
 
 	return mid+1;
 }
-int inserirIndice(void *key, void *ind, void *iArray, unsigned long memsize, int n,
-				  int (*testarChave)(const void *, const void *),
-				  int (*fcmp)(const void*, const void*)){
-	int pos = buscarIndice(key, iArray, memsize, n, testarChave);
+int inserirIndice(void *ind, void *iArray, unsigned long memsize, int *n, int (*fcmp)(const void*, const void*)){
+	// Usamos uma função de comparação diferente que na busca, pois estamos buscando uma posição com base no offset também
+	int pos = buscarChave(ind, iArray, memsize, *n, fcmp);
+	// pos é positivo se encontrou um indice identico(inclusive offset) no array
+	printf("Search result: %d\n", pos);
+	if(pos < 0) pos = -(pos+1);
+	else return -1;
 
+	// Posicionamos para que sempre insira-se na posição e desloque para sempre a partir dela
+	void *indP = iArray + memsize*pos;
+	if(fcmp(ind, indP) > 0)
+		pos++;
+
+	// Desloca para inserção
+	int i;
+	indP = iArray+memsize*(*n);
+	for(i=*n; i>=pos; i--, indP -= memsize)
+		memcpy(indP+memsize, indP, memsize);
+	// Inserção
+	memcpy(indP+memsize, ind, memsize);
+	(*n)++;
+
+	return pos;
+}
+int removerIndice(void *ind, void *iArray, unsigned long memsize, int *n, int (*fcmp)(const void*, const void*)){
+	int pos = buscarChave(ind, iArray, memsize, *n, fcmp);
+	if(pos < 0) return -1;
+
+	int i;
+	void *indP = iArray + memsize*pos;
+	for(i=pos; i<*n-1; i++, indP+=memsize)
+		memcpy(indP, indP+memsize, memsize);
+	(*n)--;
+	return 0;
 }

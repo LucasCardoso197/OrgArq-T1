@@ -7,6 +7,8 @@
 void *gerarVetorIndices(FILE *dataFile, int *n, unsigned long memsize, void (*gerarIndice)(void *, const Servidor, long), int (*fcmp)(const void *, const void *));
 int escreverArquivoIndices(FILE *outputFile, int n, unsigned long memsize, void *vIndices, int (*escreverIndice)(FILE *, void *indice));
 void *carregarIndices(FILE *inputFile, unsigned long memsize, int n, int (*lerIndice)(FILE *, void *));
-int buscarIndice(const void *key, void *iArray, unsigned long memsize, int n, int (*testarChave)(const void *, const void *));
+int buscarChave(const void *key, void *iArray, unsigned long memsize, int n, int (*testarChave)(const void *, const void *));
+int inserirIndice(void *ind, void *iArray, unsigned long memsize, int *n, int (*fcmp)(const void*, const void*));
+int removerIndice(void *ind, void *iArray, unsigned long memsize, int *n, int (*fcmp)(const void*, const void*));
 
 #endif

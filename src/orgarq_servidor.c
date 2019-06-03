@@ -508,7 +508,7 @@ int inserirRegistro(FILE *outputFile, Servidor s){
 		if(aux+tam+5 > TAM_PAGDISCO){
 			preencherPaginaDeDisco(outputFile);
 		}
-	
+		enderecoInsercao = ftell(outputFile);
 		escreverRegistro(&s, outputFile, 0);
 	}
 	else{
@@ -518,7 +518,7 @@ int inserirRegistro(FILE *outputFile, Servidor s){
 		escreverRegistro(&s, outputFile, extra-tam);
 	}
 
-	return 0;
+	return enderecoInsercao;
 }
 
 int atualizarRegistro(FILE *updateFile, char *campoAtualiza, char *argAtualiza, Servidor *s){

@@ -10,68 +10,86 @@
 #include "./src/merge_sort.h"
 
 /*  Funcao que responde a funcionalidade 1
-	Recebe strings com os nomes do arquivo.csv de entrada e .bin de saida
-	Retorna 0 para sucesso e >0 em caso de erro	*/
+*	Recebe strings com os nomes do arquivo.csv de entrada e .bin de saida
+*	Retorna 0 para sucesso e >0 em caso de erro	*/
 int gerarArquivoSaida(char *inputFileName, char *outputFileName);
 
 
 /*	Funcao que responde a funcionalidade 2
-	Recebe a string com o nome do arquivo.bin que sera lido
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com o nome do arquivo.bin que sera lido
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mostrarArquivo(char *outputFileName);
 
 
 /*	Funcao que responde a funcionalidade 3
-	Recebe a string com nome do arquivo.bin que sera lido
-		uma string que informa o campo que sera buscado
-		e uma string com o valor desse campo
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome do arquivo.bin que sera lido
+*		uma string que informa o campo que sera buscado
+*		e uma string com o valor desse campo
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento);
 
 
 /*	Funcao que responde a funcionalidade 4
-	Recebe a string com nome do arquivo.bin que sera modificado
-		uma string que informa o campo que sera buscado para remocao
-		e uma string com o valor desse campo
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome do arquivo.bin que sera modificado
+*		uma string que informa o campo que sera buscado para remocao
+*		e uma string com o valor desse campo
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int removerServidor(char *inputFileName, char *nomeCampo, char *argumento);
 
 
 /*	Funcao que responde a funcionalidade 5
-	Recebe a string com nome do arquivo.bin que sera modificado
-		OBS: os dados do servidor que será inserido é lido dentro
-			 da função a partir da entrada padrão
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome do arquivo.bin que sera modificado
+*		OBS: os dados do servidor que será inserido é lido dentro
+*			 da função a partir da entrada padrão
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int inserirServidor(char *outputFileName);
 
 
 /*	Funcao que responde a funcionalidade 6
-	Recebe a string com nome do arquivo.bin que sera modificado
-		OBS: os dados do servidor que será inserido é lido dentro
-			 da função a partir da entrada padrão
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome do arquivo.bin que sera modificado
+*		OBS: os dados do servidor que será inserido é lido dentro
+*			 da função a partir da entrada padrão
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int	atualizarServidor(char *updateFileName);
 
 /*	Funcao que responde a funcionalidade 7
-	Recebe a string com nome do arquivo.bin que sera modificado
-	e também o nome do arquivo que deverá ser gerado ordenado
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome do arquivo.bin que sera modificado
+*	e também o nome do arquivo que deverá ser gerado ordenado
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int ordenarArquivoDeDados(const char* inputFileName, const char* outputFileName);
 
 /*	Funcao que responde a funcionalidade 8
-	Recebe a string com nome dos arquivos.bin que serão combinados
-	e também o nome do arquivo que será gerado com dados presentes em algum deles
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome dos arquivos.bin que serão combinados
+*	e também o nome do arquivo que será gerado com dados presentes em algum deles
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int mergeArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName);
 
 
 /*	Funcao que responde a funcionalidade 9
-	Recebe a string com nome dos arquivos.bin que serão comparados
-	e também o nome do arquivo que será gerado com dados presentes em ambos
-	Retorna 0 caso sucesso e >0 em caso de erro	*/
+*	Recebe a string com nome dos arquivos.bin que serão comparados
+*	e também o nome do arquivo que será gerado com dados presentes em ambos
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
 int matchArquivoDeDados(const char *inputFileName1, const char *inputFileName2, const char *outputFileName);
 
-int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, const char *key);
+/*	Funcao que responde a funcionalidade 11
+*	Recebe a string com nome dos arquivos.bin de dados e de índices
+*	e também a string com o nome a ser buscado
+*	Retorna 0 caso sucesso e >0 em caso de erro	*/
+int buscarRegistroInd(const char *dataFileName, const char *indexFileName, const char *key);
+
+/*	Funcao que responde a funcionalidade 12
+*	Recebe a string com nome dos arquivos.bin de dados e de índices
+*	e também o número de remoções que serão feitas, cujo parâmetros
+*	serão recebidos da entrada padrão
+*		Retorna 0 caso sucesso e >0 em caso de erro	*/
+int removeRegistroInd(const char *dataFileName, const char *indexFileName, int n);
+
+/*	Funcao que responde a funcionalidade 13
+*	Recebe a string com nome dos arquivos.bin de dados e de índices
+*	e também o número de inserções que serão feitas, cujo parâmetros
+*	serão recebidos da entrada padrão
+*		Retorna 0 caso sucesso e >0 em caso de erro	*/
+int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n);
 
 int main(){
 	char inputFileName[50];
@@ -131,7 +149,7 @@ int main(){
 				result = atualizarServidor(outputFileName);
 			}
 			break;
-		case 7:
+		case 7: 
 			scanf("%s", inputFileName);
 			scanf("%s", outputFileName);
 			result = ordenarArquivoDeDados(inputFileName, outputFileName);
@@ -156,6 +174,15 @@ int main(){
 			scanf("%s %s", inputFileName, outputFileName);
 			scan_quote_string(argumentos);
 			result = buscarRegistroInd(inputFileName, outputFileName, argumentos);
+			break;
+		case 12:
+			scanf("%s %s %d", inputFileName, inputFileName2, &n);
+			result = removeRegistroInd(inputFileName,inputFileName2, n);
+			break;
+		case 13:
+			scanf("%s %s %d", inputFileName, inputFileName2, &n);
+			result = insereRegistroInd(inputFileName, inputFileName2, n);
+			printf("%d\n", result);
 			break;
 		default:
 			printf("Funcionalidade desconhecida.\n");
@@ -399,7 +426,6 @@ int inserirServidor(char *outputFileName){
 	if(outputFile == NULL){
 		return 1;
 	}
-
 	fread(&status, sizeof(char), 1, outputFile);
 	if(status == '0'){
 		fclose(outputFile);
@@ -791,7 +817,7 @@ int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, co
 	// Carregamento dos indices para memória primária
 	indices = carregarArquivoIndices_nome(inputIndiceName, &tam);
 	if(indices == NULL){
-		return -1;
+		return 1;
 	}
 
 	// Busca binária nos indices em memória primária
@@ -833,3 +859,146 @@ int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, co
 }
 
 // Caso 12
+int removeRegistroInd(const char *dataFileName, const char *indexFileName, int n){
+	// Abertura e testes com o arquivo de dados
+	FILE *dataFile = fopen(dataFileName, "r+");
+	if(dataFile == NULL)
+		return 1;
+	char status = '0';
+	fread(&status, sizeof(char), 1, dataFile);
+	if(status == '0'){
+		fclose(dataFile);
+		return 2;
+	}
+	// Escrevemos status do arquivo de dados como 0 pois ele será alterado
+	status = '0';
+	fseek(dataFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, dataFile);
+
+	// Carregando indices
+	indiceNome *indices; int tam;
+	indices = carregarArquivoIndices_nome(indexFileName, &tam);
+	if(indices == NULL){
+		fclose(dataFile);
+		return 1;
+	}
+
+	char nomeCampo[20], valorCampo[MAX_TAM_CAMPO];
+	int i, pos;
+	for(i=0; i<n; i++){
+		scanf("%s", nomeCampo);
+		scan_quote_string(valorCampo);
+		if(strcmp(nomeCampo, "nomeServidor") == 0){
+			pos = buscarIndice_nome(valorCampo, indices, tam);
+			if(pos < 0)
+				printf("Registro inexistente de nome: %s.\n", valorCampo);
+			else {
+				while(strcmp(valorCampo, indices[pos].nomeServidor) == 0){
+					indiceNome aux = indices[pos];
+					// Removendo do arquivo de dados
+					fseek(dataFile ,indices[pos].byteoffset, SEEK_SET);
+					removerRegistro(dataFile);
+					removerIndice_nome(&aux, indices, &tam);
+				}
+			}
+		}
+		else
+			printf("Remoção solicitada de campo diferente que nomeServidor.\n");
+	}
+
+	// Finalização arquivo de dados
+	status = '1';
+	fseek(dataFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, dataFile);
+	fclose(dataFile);
+
+	// Reescrita do arquivo de índices
+	FILE *indexFile = fopen(indexFileName, "wb");
+	if(indexFile == NULL)
+		return -1;
+	escreverCabecalhoIndices_nome(indexFile, tam);
+	reescreverArquivoIndice_nome(indexFile, tam, indices);
+	
+	// Finalização arquivo de indices
+	status = '1';
+	fseek(indexFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, indexFile);
+	fclose(indexFile);
+
+	free(indices);
+	return 0;
+}
+
+// Caso 13
+int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n){
+	// Abertura e testes com o arquivo de dados
+	FILE *dataFile = fopen(dataFileName, "r+");
+	if(dataFile == NULL)
+		return 1;
+	char status = '0';
+	fread(&status, sizeof(char), 1, dataFile);
+	if(status == '0'){
+		fclose(dataFile);
+		return 2;
+	}
+	// Escrevemos status do arquivo de dados como 0 pois ele será alterado
+	status = '0';
+	fseek(dataFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, dataFile);
+
+	// Carregando indices
+	indiceNome *indices; int tam;
+	indices = carregarArquivoIndices_nome(indexFileName, &tam);
+	if(indices == NULL){
+		fclose(dataFile);
+		return 1;
+	}
+
+	// Verifica se o vetor está cheio ou possui
+	// menos espaços livre do que serão feitas inserções
+	if(tam%500 == 0 || (500-(tam%500)) < n)
+		indices = realloc(indices, sizeof(indiceNome)*(tam+500));
+
+	// Loop de n inserções
+	indiceNome novoInd;
+	Servidor novoS;
+	novoS.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	novoS.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	int i;
+	for(i=0; i<n; i++){
+		// Leitura do registro a ser inserido a partir da entrada padrão
+		scanServidor(&novoS);
+
+		// Criando indice equivalente
+		strcpy(novoInd.nomeServidor, novoS.nomeServidor);
+		// Chama função de inserção no arquvio de dados que retorna byteoffset de onde foi inserido
+		novoInd.byteoffset = inserirRegistro(dataFile, novoS);
+
+		// Inserção no vetor de indices
+		inserirIndice_nome(novoInd, indices, &tam);
+	}
+	free(novoS.nomeServidor);
+	free(novoS.cargoServidor);
+
+	// Finalização arquivo de dados
+	status = '1';
+	fseek(dataFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, dataFile);
+	fclose(dataFile);
+
+	// Reescrita do arquivo de índices
+	FILE *indexFile = fopen(indexFileName, "wb");
+	if(indexFile == NULL)
+		return -1;
+	escreverCabecalhoIndices_nome(indexFile, tam);
+	reescreverArquivoIndice_nome(indexFile, tam, indices);
+	
+	// Finalização arquivo de indices
+	status = '1';
+	fseek(indexFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, indexFile);
+	fclose(indexFile);
+
+	free(indices);
+	return 0;
+}

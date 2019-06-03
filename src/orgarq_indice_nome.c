@@ -14,13 +14,24 @@ void gerarIndice_nome(void *ind, const Servidor s, long offset){
 		ip->nomeServidor[i] = '@';
 }
 
-int compararIndice_nome(const void *indA, const void *indB){
+int compararIndice_nomeSort(const void *indA, const void *indB){
 	indiceNome *ipA, *ipB;
 	ipA = (indiceNome *) indA; 
 	ipB = (indiceNome *) indB;
     int aux = strcmp(ipB->nomeServidor, ipA->nomeServidor);
     if(aux == 0)
         return ipB->byteoffset - ipA->byteoffset;
+    else 
+	    return aux;
+}
+
+int compararIndice_nome(const void *indA, const void *indB){
+	indiceNome *ipA, *ipB;
+	ipA = (indiceNome *) indA; 
+	ipB = (indiceNome *) indB;
+    int aux = strcmp(ipA->nomeServidor, ipB->nomeServidor);
+    if(aux == 0)
+        return ipA->byteoffset - ipB->byteoffset;
     else 
 	    return aux;
 }
@@ -67,40 +78,40 @@ int lerIndice_nome(FILE *inputFile, void *ind){
 	return MAX_TAM_NOME+sizeof(long);
 }
 
-int criarArquivoIndices_nome(const char *inputFileName, const char *outputFileName){
+int criarArquivoIndices_nome(const char *dataFileName, const char *indexFileName){
 	indiceNome *vetorIndicesLidos;
 	int tam;
 
-    FILE *inputFile = fopen(inputFileName, "rb");
-    if(inputFile == NULL){
+    FILE *dataFile = fopen(dataFileName, "rb");
+    if(dataFile == NULL){
 		fprintf(stderr, "Falha na criação do arquivo.\n");
 		return -1;
 	}
     char status = '0';
-    fread(&status, sizeof(char), 1, inputFile);
+    fread(&status, sizeof(char), 1, dataFile);
     if(status == '0'){
         fprintf(stderr, "Arquivo corrompido para criação.");
         return -2;
     }
-	vetorIndicesLidos = (indiceNome *) gerarVetorIndices(inputFile, &tam, sizeof(indiceNome), gerarIndice_nome, compararIndice_nome);
-    fclose(inputFile);
+	vetorIndicesLidos = (indiceNome *) gerarVetorIndices(dataFile, &tam, sizeof(indiceNome), gerarIndice_nome, compararIndice_nomeSort);
+    fclose(dataFile);
 
-	// Criação do arquivo
-	FILE *outputFile = fopen(outputFileName, "wb");
-	if(outputFile == NULL){
+	// Criação do arquivo de indices
+	FILE *indexFile = fopen(indexFileName, "wb");
+	if(indexFile == NULL){
 		fprintf(stderr, "Falha na criação do arquivo.\n");
 		return -1;
 	}
 
-	escreverCabecalhoIndices_nome(outputFile, tam);
-	escreverArquivoIndices(outputFile, tam, sizeof(indiceNome), vetorIndicesLidos, escreverIndice_nome);
+	escreverCabecalhoIndices_nome(indexFile, tam);
+	escreverArquivoIndices(indexFile, tam, sizeof(indiceNome), vetorIndicesLidos, escreverIndice_nome);
 
 	// Atualização do status após fim da escrita de indices
 	status = '1';
-	fseek(outputFile, 0, SEEK_SET);
-	fwrite(&status, sizeof(char), 1, outputFile);
+	fseek(indexFile, 0, SEEK_SET);
+	fwrite(&status, sizeof(char), 1, indexFile);
 
-	fclose(outputFile);
+	fclose(indexFile);
 	return 0;
 }
 
@@ -138,6 +149,22 @@ indiceNome *carregarArquivoIndices_nome(const char *inputFileName, int *tam){
 	return vetor;
 }
 
-int buscarIndice_nome(const char *key, indiceNome *iArray, const int n){
-    return buscarIndice(key, iArray, sizeof(indiceNome), n, testarChave_nome);
+void reescreverArquivoIndice_nome(FILE *indexFile, int tam, indiceNome *iArray){
+	if(indexFile != NULL && iArray != NULL)
+		escreverArquivoIndices(indexFile, tam, sizeof(indiceNome), iArray, escreverIndice_nome);
+	else
+		fprintf(stderr, "Erro: parâmetros inapropriados para função de reescrita.");
+}
+
+// Array
+int buscarIndice_nome(const char *key, indiceNome *iArray, int n){
+    return buscarChave(key, iArray, sizeof(indiceNome), n, testarChave_nome);
+}
+
+int inserirIndice_nome(indiceNome novo, indiceNome *iArray, int *n){
+	return inserirIndice(&novo, iArray, sizeof(indiceNome), n, compararIndice_nome);
+}
+
+int removerIndice_nome(indiceNome *ind, indiceNome *iArray, int *n){
+	return removerIndice(ind, iArray, sizeof(indiceNome), n, compararIndice_nome);
 }

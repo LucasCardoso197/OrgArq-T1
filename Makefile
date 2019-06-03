@@ -40,6 +40,14 @@ test11:
 	./programaTrab4 < ./_input/1.in
 	./programaTrab4 < ./_input/10.in
 	./programaTrab4 < ./_input/11.in
+test12:
+	./programaTrab4 < ./_input/1.in
+	./programaTrab4 < ./_input/10.in
+	./programaTrab4 < ./_input/12.in
+test13:
+	./programaTrab4 < ./_input/1.in
+	./programaTrab4 < ./_input/10.in
+	./programaTrab4 < ./_input/13.in
 testCustom:
 	./programaTrab4 < ./_input/custom.in
 dump:
