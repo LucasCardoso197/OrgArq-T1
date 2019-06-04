@@ -84,15 +84,15 @@ int criarArquivoIndices_nome(const char *dataFileName, const char *indexFileName
 
     FILE *dataFile = fopen(dataFileName, "rb");
     if(dataFile == NULL){
-		fprintf(stderr, "Falha na criação do arquivo.\n");
 		return -1;
 	}
     char status = '0';
     fread(&status, sizeof(char), 1, dataFile);
     if(status == '0'){
-        fprintf(stderr, "Arquivo corrompido para criação.");
+		fclose(dataFile);
         return -2;
-    }
+	}
+
 	vetorIndicesLidos = (indiceNome *) gerarVetorIndices(dataFile, &tam, sizeof(indiceNome), gerarIndice_nome, compararIndice_nomeSort);
     fclose(dataFile);
 
@@ -126,17 +126,15 @@ int lerTamanho_nome(FILE *inputFile){
 	return tam;
 }
 
-indiceNome *carregarArquivoIndices_nome(const char *inputFileName, int *tam){
+indiceNome *carregarArquivoIndices_nome(const char *inputFileName, int *tam, int *nPag){
 	FILE *inputFile = fopen(inputFileName, "rb");
 	if(inputFile == NULL){
-		fprintf(stderr, "Falha na abertura do arquivo para carregamento.\n");
 		return NULL;
 	}
 
 	char status = '0';
 	fread(&status, sizeof(char), 1, inputFile);
 	if(status == '0'){
-		fprintf(stderr, "Arquivo corrompido.\n");
 		return NULL;
 	}
 
@@ -144,7 +142,7 @@ indiceNome *carregarArquivoIndices_nome(const char *inputFileName, int *tam){
 	indiceNome *vetor;
 	fseek(inputFile, TAM_PAGDISCO, SEEK_SET);
 	vetor = carregarIndices(inputFile, sizeof(indiceNome), *tam, lerIndice_nome);
-
+	*nPag = ftell(inputFile)/TAM_PAGDISCO + 1;
 	fclose(inputFile);
 	return vetor;
 }

@@ -20,9 +20,11 @@ void *gerarVetorIndices(FILE *dataFile, int *n, unsigned long memsize, void (*ge
 				iArray = realloc(iArray, (*n+500)*memsize);
 				aux = iArray+((*n)*memsize);
 			}
-            gerarIndice(aux, s, byteO);
-            aux += memsize;
-			(*n)++;
+			if(strlen(s.nomeServidor) > 0){
+				gerarIndice(aux, s, byteO);
+				aux += memsize;
+				(*n)++;
+			}
 		}
 		else if(readReturnValue == -2){
 			fprintf(stderr, "Erro no carregamento do arquivo para memória primária.\n");
@@ -87,7 +89,6 @@ int inserirIndice(void *ind, void *iArray, unsigned long memsize, int *n, int (*
 	// Usamos uma função de comparação diferente que na busca, pois estamos buscando uma posição com base no offset também
 	int pos = buscarChave(ind, iArray, memsize, *n, fcmp);
 	// pos é positivo se encontrou um indice identico(inclusive offset) no array
-	printf("Search result: %d\n", pos);
 	if(pos < 0) pos = -(pos+1);
 	else return -1;
 

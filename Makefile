@@ -56,3 +56,4 @@ clean:
 	rm *.o
 	rm programaTrab4
 	rm *.txt
+	rm binario*.bin

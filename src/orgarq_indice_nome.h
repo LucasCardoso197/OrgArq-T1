@@ -18,7 +18,7 @@ int compararIndice_nomeSort(const void *indA, const void *indB);
 int compararIndice_nome(const void *indA, const void *indB);
 void escreverCabecalhoIndices_nome(FILE *outputFile, int n);
 int criarArquivoIndices_nome(const char *inputFileName, const char *outputFileName);
-indiceNome *carregarArquivoIndices_nome(const char *inputFileName, int *tam);
+indiceNome *carregarArquivoIndices_nome(const char *inputFileName, int *tam, int *nPag);
 int buscarIndice_nome(const char *key, indiceNome *iArray, int n);
 int inserirIndice_nome(indiceNome novo, indiceNome *iArray, int *n);
 void reescreverArquivoIndice_nome(FILE *indexFile, int tam, indiceNome *iArray);

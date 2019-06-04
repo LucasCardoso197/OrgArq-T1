@@ -91,6 +91,8 @@ int removeRegistroInd(const char *dataFileName, const char *indexFileName, int n
 *		Retorna 0 caso sucesso e >0 em caso de erro	*/
 int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n);
 
+int comparaBusca(const char *inputFileName, const char *inputIndiceName, char *key);
+
 int main(){
 	char inputFileName[50];
 	char inputFileName2[50];
@@ -172,17 +174,33 @@ int main(){
 			break;
 		case 11:
 			scanf("%s %s", inputFileName, outputFileName);
-			scan_quote_string(argumentos);
+			scanf("%s ", nomeCampo);
+			fgets(argumentos, 120, stdin);
+			for(i=0; i < strlen(argumentos); i++)
+			// Removendo tabulacoes verticais ou caractere de nova linha do argumento
+				if(argumentos[i] == '\r' || argumentos[i] == '\n')
+					argumentos[i] = '\0';
 			result = buscarRegistroInd(inputFileName, outputFileName, argumentos);
 			break;
 		case 12:
 			scanf("%s %s %d", inputFileName, inputFileName2, &n);
 			result = removeRegistroInd(inputFileName,inputFileName2, n);
+			strcpy(outputFileName, inputFileName2);
 			break;
 		case 13:
 			scanf("%s %s %d", inputFileName, inputFileName2, &n);
 			result = insereRegistroInd(inputFileName, inputFileName2, n);
-			printf("%d\n", result);
+			strcpy(outputFileName, inputFileName2);
+			break;
+		case 14:
+			scanf("%s %s", inputFileName, outputFileName);
+			scanf("%s ", nomeCampo);
+			fgets(argumentos, 120, stdin);
+			for(i=0; i < strlen(argumentos); i++)
+			// Removendo tabulacoes verticais ou caractere de nova linha do argumento
+				if(argumentos[i] == '\r' || argumentos[i] == '\n')
+					argumentos[i] = '\0';
+			result = comparaBusca(inputFileName, outputFileName, argumentos);
 			break;
 		default:
 			printf("Funcionalidade desconhecida.\n");
@@ -194,8 +212,8 @@ int main(){
 		printf("Registro inexistente.\n");
 	else if(result != 0)
 		printf("Falha no processamento do arquivo.\n");
-	//else if(funcionalidade != 2 && funcionalidade != 3)
-	//	binarioNaTela2(outputFileName);
+	else if(funcionalidade != 2 && funcionalidade != 3 && funcionalidade != 11 && funcionalidade != 14)
+		binarioNaTela2(outputFileName);
 
 	return 0;
 }
@@ -208,7 +226,7 @@ int gerarArquivoSaida(char *inputFileName, char *outputFileName){
 
 	Servidor data1, data2;
 	// Tamanho maximo dos campos variaveis definidos com um macro
-	// no arquivo orgarq_servidor.h; Considerado 100.
+	// no arquivo orgarq_servidor.h; Considerado 120.
 	data1.nomeServidor = malloc(MAX_TAM_CAMPO);
 	data1.cargoServidor = malloc(MAX_TAM_CAMPO);
 	data2.nomeServidor = malloc(MAX_TAM_CAMPO);
@@ -363,8 +381,9 @@ int mostrarRegistros(char *inputFileName, char *nomeCampo, char *argumento){
 	}
 
 	// Imprime de acordo com o numero de registros validos
+	int numPag = (ftell(inputFile)/TAM_PAGDISCO)+1;
 	if(registros == 0) printf("Registro inexistente.\n");
-	else printf("Número de páginas de disco acessadas: %ld\n", (ftell(inputFile)/TAM_PAGDISCO)+1);
+	else printf("Número de páginas de disco acessadas: %d\n", numPag);
 
 	fclose(inputFile);
 	free(data.nomeServidor);
@@ -813,9 +832,9 @@ int matchArquivoDeDados(const char *inputFileName1, const char *inputFileName2, 
 // Caso 11
 int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, const char *key){
 	indiceNome *indices;
-	int tam;
+	int tam, numPaginasInd;
 	// Carregamento dos indices para memória primária
-	indices = carregarArquivoIndices_nome(inputIndiceName, &tam);
+	indices = carregarArquivoIndices_nome(inputIndiceName, &tam, &numPaginasInd);
 	if(indices == NULL){
 		return 1;
 	}
@@ -823,7 +842,7 @@ int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, co
 	// Busca binária nos indices em memória primária
 	int pos = buscarIndice_nome(key, indices, tam);
 	if(pos < 0){
-		printf("Registro inexistente.\n");
+		free(indices);
 		return 3;
 	}
 
@@ -839,6 +858,7 @@ int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, co
 	// Leitura metadados cabeçalho
 	campoCabecalho cab[5];
 	lerCabecalho(cab, 5, dataFile);
+	int numPaginas = 1, lastPage = ftell(dataFile)/TAM_PAGDISCO;
 
 	// Leitura de todos os registros encontrados a partir do arquivo de dados
 	Servidor serv;
@@ -846,10 +866,15 @@ int buscarRegistroInd(const char *inputFileName, const char *inputIndiceName, co
 	serv.cargoServidor = (char *) malloc(MAX_TAM_CAMPO*sizeof(char));
 	while(strcmp(key, indices[pos].nomeServidor) == 0){
 		fseek(dataFile, indices[pos].byteoffset, SEEK_SET);
+		if(lastPage != ftell(dataFile)/TAM_PAGDISCO) numPaginas++;
+		lastPage = ftell(dataFile)/TAM_PAGDISCO;
 		lerRegistro(dataFile, &serv);
 		imprimirCamposServidor(&serv, cab);
 		pos++;
 	}
+
+	printf("Número de páginas de disco para carregar o arquivo de índice: %d\n", numPaginasInd);
+	printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", numPaginas);
 	
 	// Finalizações
 	fclose(dataFile);
@@ -876,8 +901,8 @@ int removeRegistroInd(const char *dataFileName, const char *indexFileName, int n
 	fwrite(&status, sizeof(char), 1, dataFile);
 
 	// Carregando indices
-	indiceNome *indices; int tam;
-	indices = carregarArquivoIndices_nome(indexFileName, &tam);
+	indiceNome *indices; int tam, nPag;
+	indices = carregarArquivoIndices_nome(indexFileName, &tam, &nPag);
 	if(indices == NULL){
 		fclose(dataFile);
 		return 1;
@@ -890,9 +915,7 @@ int removeRegistroInd(const char *dataFileName, const char *indexFileName, int n
 		scan_quote_string(valorCampo);
 		if(strcmp(nomeCampo, "nomeServidor") == 0){
 			pos = buscarIndice_nome(valorCampo, indices, tam);
-			if(pos < 0)
-				printf("Registro inexistente de nome: %s.\n", valorCampo);
-			else {
+			if(pos >= 0){
 				while(strcmp(valorCampo, indices[pos].nomeServidor) == 0){
 					indiceNome aux = indices[pos];
 					// Removendo do arquivo de dados
@@ -947,8 +970,8 @@ int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n
 	fwrite(&status, sizeof(char), 1, dataFile);
 
 	// Carregando indices
-	indiceNome *indices; int tam;
-	indices = carregarArquivoIndices_nome(indexFileName, &tam);
+	indiceNome *indices; int tam, nPag;
+	indices = carregarArquivoIndices_nome(indexFileName, &tam, &nPag);
 	if(indices == NULL){
 		fclose(dataFile);
 		return 1;
@@ -962,6 +985,7 @@ int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n
 	// Loop de n inserções
 	indiceNome novoInd;
 	Servidor novoS;
+	long aux;
 	novoS.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	novoS.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
 	int i;
@@ -969,13 +993,14 @@ int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n
 		// Leitura do registro a ser inserido a partir da entrada padrão
 		scanServidor(&novoS);
 
-		// Criando indice equivalente
-		strcpy(novoInd.nomeServidor, novoS.nomeServidor);
 		// Chama função de inserção no arquvio de dados que retorna byteoffset de onde foi inserido
-		novoInd.byteoffset = inserirRegistro(dataFile, novoS);
+		aux = inserirRegistro(dataFile, novoS);
+		// Criando indice equivalente
+		gerarIndice_nome(&novoInd, novoS, aux);
 
 		// Inserção no vetor de indices
-		inserirIndice_nome(novoInd, indices, &tam);
+		if(strlen(novoInd.nomeServidor) > 0)
+			inserirIndice_nome(novoInd, indices, &tam);
 	}
 	free(novoS.nomeServidor);
 	free(novoS.cargoServidor);
@@ -1000,5 +1025,101 @@ int insereRegistroInd(const char *dataFileName, const char *indexFileName, int n
 	fclose(indexFile);
 
 	free(indices);
+	return 0;
+}
+
+// Caso 14
+int comparaBusca(const char *inputFileName, const char *inputIndiceName, char *key){
+	// BUSCA SEM AUXÍLIO DE ÍNDICE
+	FILE *dataFile;
+	Servidor data;
+	char status = '0';
+	campoCabecalho cab[5];
+	int registros = 0;
+
+	dataFile = fopen(inputFileName, "r");
+	if(dataFile == NULL){
+		return 1;
+	}
+
+	fread(&status, sizeof(char), 1, dataFile);
+	if(status == '0'){
+		fclose(dataFile);
+		return 2;
+	}
+
+	data.nomeServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+	data.cargoServidor = (char *)malloc(sizeof(char)*MAX_TAM_CAMPO);
+
+	// Leitura de metadados com descricao dos campos
+	lerCabecalho(cab, 5, dataFile);
+
+	// Posiciona no inicio da primeira pagina de dados do arquivo
+	fseek(dataFile, 32000, SEEK_SET);
+
+	// Leitura dos registros
+	int isFirst = 1;
+	while((lerRegistro(dataFile, &data)) > 0){
+		// Valida se o valor do campo do registro eh igual ao valor dado no argumento
+		if(testarCampo(&data, "nomeServidor", key)){
+			if(isFirst){
+				printf("*** Realizando a busca sem o auxílio de índice\n");
+				isFirst = 0;
+			}
+			imprimirCamposServidor(&data, cab);
+			registros++;
+		}
+	}
+
+	// Imprime de acordo com o numero de registros validos
+	int numPagNoInd = (ftell(dataFile)/TAM_PAGDISCO)+1;
+	int result;
+	if(registros == 0) result = 3;
+	else printf("Número de páginas de disco acessadas: %d\n", numPagNoInd);
+
+	if(result == 3) {	
+		fclose(dataFile);
+		free(data.nomeServidor);
+		free(data.cargoServidor);
+		return 3;
+	}
+
+	// BUSCA COM AUXÍLIO DE INDICES
+	printf("*** Realizando a busca com o auxílio de um índice secundário fortemente ligado\n");
+	indiceNome *indices;
+	int tam, numPaginasInd;
+	// Carregamento dos indices para memória primária
+	indices = carregarArquivoIndices_nome(inputIndiceName, &tam, &numPaginasInd);
+	if(indices == NULL){
+		return 1;
+	}
+
+	// Busca binária nos indices em memória primária
+	int pos = buscarIndice_nome(key, indices, tam);
+	if(pos < 0){
+		free(indices);
+		return 3;
+	}
+
+	int numPaginasComInd = 1, lastPage = 0;
+
+	// Leitura de todos os registros encontrados a partir do arquivo de dados
+	while(strcmp(key, indices[pos].nomeServidor) == 0){
+		fseek(dataFile, indices[pos].byteoffset, SEEK_SET);
+		if(lastPage != ftell(dataFile)/TAM_PAGDISCO) numPaginasComInd++;
+		lastPage = ftell(dataFile)/TAM_PAGDISCO;
+		lerRegistro(dataFile, &data);
+		imprimirCamposServidor(&data, cab);
+		pos++;
+	}
+
+	printf("Número de páginas de disco para carregar o arquivo de índice: %d\n", numPaginasInd);
+	printf("Número de páginas de disco para acessar o arquivo de dados: %d\n", numPaginasComInd);
+	
+	printf("\nA diferença no número de páginas de disco acessadas: %d\n", numPagNoInd-numPaginasComInd);
+	// Finalizações
+	fclose(dataFile);
+	free(data.nomeServidor);
+	free(data.cargoServidor);
 	return 0;
 }
